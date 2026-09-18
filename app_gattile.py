@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, time
 import json
 import os
+import uuid
 import pandas as pd
 import pytz
 import streamlit as st
@@ -133,7 +134,7 @@ with st.sidebar:
     st.title("🐱 Menu Rapido")
     st.markdown("---")
 
-    # Sezione "I miei turni" nella sidebar (usa la memoria di sessione invece di ri-interrogare la DB)
+    # Sezione "I miei turni" nella sidebar
     with st.expander("🔍 Cerca i miei turni", expanded=False):
         volontari_esistenti_side = st.session_state.turni
         nomi_side = sorted(
@@ -178,7 +179,8 @@ with st.sidebar:
 
     # Sezione "Admin / Simulatore"
     with st.expander("🔒 Area Admin", expanded=False):
-        ADMIN_PASSWORD_CORRETTA = "gattile2026"
+        # Utilizza st.secrets se configurata, altrimenti ripiega su valore di fallback
+        ADMIN_PASSWORD_CORRETTA = st.secrets.get("ADMIN_PASSWORD", "gattile2026")
         if not st.session_state.is_admin:
             with st.form("form_login_admin_side"):
                 pwd_input = st.text_input(
@@ -188,10 +190,10 @@ with st.sidebar:
                 if btn_login:
                     if pwd_input == ADMIN_PASSWORD_CORRETTA:
                         st.session_state.is_admin = True
-                        st.success("Sbloccato!")
+                        st.toast("Area Admin Sbloccata! 🔓", icon="✅")
                         st.rerun()
                     else:
-                        st.error("Errata.")
+                        st.error("Password errata.")
         else:
             st.success("🔓 Admin attivo")
             scelta_simulazione = st.selectbox(
@@ -213,6 +215,7 @@ with st.sidebar:
 
             if st.button("🔒 Esci Admin", key="esci_admin_side"):
                 st.session_state.is_admin = False
+                st.toast("Uscito dall'Area Admin.", icon="🔒")
                 st.rerun()
 
 # --- INTESTAZIONE PRINCIPALE ---
@@ -311,6 +314,23 @@ if menu == "📅 Inserisci":
         opzioni_settimana,
         horizontal=True,
     )
+
+    # --- INDICATORI DI COPERTURA METRICI ---
+    turni_sett_ins = [t for t in st.session_state.turni if t.get("settimana") == settimana_scelta]
+    giorni_m = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+    fasce_m = ["Mattina", "Pomeriggio"]
+    coperti_m = sum(1 for g in giorni_m for f in fasce_m if any(t.get("giorno") == g and t.get("fascia") == f for t in turni_sett_ins))
+    scoperti_m = 14 - coperti_m
+
+    col_m1, col_m2 = st.columns(2)
+    col_m1.metric("Fasce Coperte", f"{coperti_m}/14")
+    col_m2.metric(
+        "Fasce Ancora Liberi",
+        scoperti_m,
+        delta=f"{scoperti_m} da coprire" if scoperti_m > 0 else "Tutto coperto! 🎉",
+        delta_color="inverse" if scoperti_m > 0 else "normal",
+    )
+    st.markdown("---")
 
     volontari_registrati = get_lista_volontari()
 
@@ -475,7 +495,7 @@ if menu == "📅 Inserisci":
                         )
                     else:
                         nuovo_turno = {
-                            "id": str(datetime.now().timestamp()),
+                            "id": uuid.uuid4().hex,
                             "settimana": settimana_scelta,
                             "volontario": volontario_finale,
                             "giorno": giorno,
@@ -487,6 +507,7 @@ if menu == "📅 Inserisci":
                         # Salva atomico su DB e aggiorna lo stato locale
                         aggiungi_turno_atomico(DB_TURNI, nuovo_turno)
                         st.session_state.turni.append(nuovo_turno)
+                        st.toast(f"Turno prenotato per {volontario_finale}! 🐾", icon="✅")
                         st.success(
                             f"Turno registrato con successo per"
                             f" {volontario_finale}!"
@@ -511,6 +532,22 @@ elif menu == "👀 Panoramica":
     turni_filtrati = [
         t for t in turni_attuali if t.get("settimana") == settimana_vista
     ]
+
+    # --- INDICATORI DI COPERTURA METRICI ---
+    giorni_m = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+    fasce_m = ["Mattina", "Pomeriggio"]
+    coperti_m = sum(1 for g in giorni_m for f in fasce_m if any(t.get("giorno") == g and t.get("fascia") == f for t in turni_filtrati))
+    scoperti_m = 14 - coperti_m
+
+    col_m1, col_m2 = st.columns(2)
+    col_m1.metric("Fasce Coperte", f"{coperti_m}/14")
+    col_m2.metric(
+        "Fasce Ancora Liberi",
+        scoperti_m,
+        delta=f"{scoperti_m} da coprire" if scoperti_m > 0 else "Tutto coperto! 🎉",
+        delta_color="inverse" if scoperti_m > 0 else "normal",
+    )
+    st.markdown("---")
 
     if not turni_filtrati:
         st.info("Nessun turno inserito al momento per questo periodo.")
@@ -591,7 +628,7 @@ elif menu == "👀 Panoramica":
                                         del st.session_state[
                                             f"editing_{t['id']}"
                                         ]
-                                    st.success("Turno eliminato!")
+                                    st.toast("Turno rimosso correttamente.", icon="🗑️")
                                     st.rerun()
 
                             if st.session_state.get(
@@ -652,10 +689,7 @@ elif menu == "👀 Panoramica":
                                             st.session_state[
                                                 f"editing_{t['id']}"
                                             ] = False
-                                            st.success(
-                                                "Turno modificato con"
-                                                " successo!"
-                                            )
+                                            st.toast("Turno modificato con successo!", icon="✅")
                                             st.rerun()
 
                     box_coperti = set()
@@ -735,9 +769,7 @@ elif menu == "📦 Box & Gatti":
                         nuovo_nome_box.strip()
                     ] = gatti_list
                     salva_file_json(DB_BOX, st.session_state.struttura_box)
-                    st.success(
-                        f"Box '{nuovo_nome_box}' aggiunto e salvato su database con successo!"
-                    )
+                    st.toast("Box aggiunto con successo! 📦", icon="✅")
                     st.rerun()
 
         st.markdown("---")
@@ -760,7 +792,7 @@ elif menu == "📦 Box & Gatti":
                 if st.button("Elimina Box", key=f"del_box_{nome_box}"):
                     del st.session_state.struttura_box[nome_box]
                     salva_file_json(DB_BOX, st.session_state.struttura_box)
-                    st.success("Box eliminato e database aggiornato!")
+                    st.toast("Box eliminato! 🗑️", icon="🗑️")
                     st.rerun()
 
             with st.expander(f"Modifica gatti in {nome_box}"):
@@ -782,9 +814,7 @@ elif menu == "📦 Box & Gatti":
                         ]
                         st.session_state.struttura_box[nome_box] = nuova_lista
                         salva_file_json(DB_BOX, st.session_state.struttura_box)
-                        st.success(
-                            "Lista gatti aggiornata e salvata nel database!"
-                        )
+                        st.toast("Elenco gatti aggiornato! 🐱", icon="✅")
                         st.rerun()
             st.markdown("---")
 
@@ -1003,7 +1033,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             ] = float(ore_totali_obbligatorie)
 
                         salva_file_json(DB_LPU, st.session_state.lpu_data)
-                        st.success(f"LPU '{nome_lpu}' salvato con successo!")
+                        st.toast(f"LPU '{nome_lpu}' salvato con successo! 📝", icon="✅")
                         st.rerun()
 
             st.markdown("---")
@@ -1044,7 +1074,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                         if st.button("Elimina 🗑️", key=f"btn_del_lpu_{nome}"):
                             del lpu_dict[nome]
                             salva_file_json(DB_LPU, lpu_dict)
-                            st.success("LPU rimosso.")
+                            st.toast("LPU rimosso.", icon="🗑️")
                             st.rerun()
 
         with tab_lpu_inserisci:
@@ -1115,7 +1145,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                         if not box_assegnati_lpu:
                             st.error("Seleziona almeno un box.")
                         else:
-                            id_univoco = str(datetime.now().timestamp())
+                            id_univoco = uuid.uuid4().hex
                             nuovo_t_lpu = {
                                 "id": id_univoco,
                                 "lpu": lpu_scelto,
@@ -1150,10 +1180,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             aggiungi_turno_atomico(DB_TURNI, turno_generale_equivalente)
                             st.session_state.turni.append(turno_generale_equivalente)
 
-                            st.success(
-                                f"Turno registrato per {lpu_scelto}! Aggiunte"
-                                f" {ore_svolte_val} ore."
-                            )
+                            st.toast(f"Turno LPU assegnato a {lpu_scelto}! 🚀", icon="✅")
                             st.rerun()
 
         with tab_lpu_storico:
@@ -1220,10 +1247,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                     item for item in st.session_state.turni if item["id"] != f"lpu_{tl['id']}"
                                 ]
 
-                            st.success(
-                                "Turno LPU eliminato e ore stornate con"
-                                " successo!"
-                            )
+                            st.toast("Turno LPU eliminato e ore stornate!", icon="🗑️")
                             st.rerun()
 
                     if st.session_state.get(f"editing_lpu_{tl['id']}", False):
@@ -1307,9 +1331,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                     st.session_state[
                                         f"editing_lpu_{tl['id']}"
                                     ] = False
-                                    st.success(
-                                        "Turno LPU modificato con successo!"
-                                    )
+                                    st.toast("Turno LPU modificato con successo!", icon="✅")
                                     st.rerun()
 
                     st.markdown("---")
