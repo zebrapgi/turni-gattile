@@ -179,7 +179,7 @@ with st.sidebar:
 
     # Sezione "Admin / Simulatore"
     with st.expander("🔒 Area Admin", expanded=False):
-        ADMIN_PASSWORD_CORRETTA = st.secrets.get("ADMIN_PASSWORD", "giacomo")
+        ADMIN_PASSWORD_CORRETTA = st.secrets.get("ADMIN_PASSWORD", "gattile2026")
         if not st.session_state.is_admin:
             with st.form("form_login_admin_side"):
                 pwd_input = st.text_input(
