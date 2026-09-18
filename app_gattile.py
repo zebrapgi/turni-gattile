@@ -40,7 +40,7 @@ def salva_file_json(filename, data):
         pass
 
 
-# Inizializzazione stato box e gatti (Struttura a dizionario: "Nome Box": ["Gatto 1", "Gatto 2"])
+# Inizializzazione stato box e gatti
 BOX_DEFAULT = {
     "Box 1 (Ingresso)": ["Milo", "Nina"],
     "Box 2 (Cuccioli)": ["Romeo", "Pallina"],
@@ -57,6 +57,33 @@ if "turni" not in st.session_state:
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 
+if "app_avviata" not in st.session_state:
+    st.session_state.app_avviata = False
+
+# --- SCHERMATA INIZIALE DI ACCESSO (HOME PAGE GITHUB) ---
+if not st.session_state.app_avviata:
+    col_centrale_1, col_centrale_2, col_centrale_3 = st.columns([1, 2, 1])
+    with col_centrale_2:
+        if os.path.exists("icona.jpg"):
+            st.image("icona.jpg", width=120)
+        st.title("🐱 Gestione Turni Gattile")
+        st.markdown(
+            "Benvenuto nell'applicazione ufficiale per la gestione dei turni e dei box del gattile. "
+            "Organizza le presenze, monitora la copertura delle zone e consulta l'archivio in modo semplice e veloce."
+        )
+        st.markdown("---")
+        
+        if st.button("🚀 Accedi all'Applicazione", use_container_width=True):
+            st.session_state.app_avviata = True
+            st.rerun()
+
+        st.markdown("---")
+        st.markdown(
+            "🔗 Codice sorgente e repository ufficiale: "
+            "[GitHub - turni-gattile](https://github.com/lallag/turni-gattile)"
+        )
+    st.stop()
+
 adesso = datetime.now()
 giorno_settimana = adesso.weekday()
 ora_attuale = adesso.hour
@@ -72,6 +99,12 @@ with st.sidebar:
         st.image("icona.jpg", width=80)
     
     st.title("🐱 Menu Rapido")
+    
+    if st.button("🏠 Torna alla Home"):
+        st.session_state.app_avviata = False
+        st.rerun()
+
+    st.markdown("---")
     
     # Sezione "I miei turni" nella sidebar
     with st.expander("🔍 Cerca i miei turni", expanded=False):
