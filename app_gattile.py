@@ -4,6 +4,8 @@ import os
 import pandas as pd
 import pytz
 import streamlit as st
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 st.set_page_config(
     page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
