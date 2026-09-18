@@ -42,7 +42,7 @@ def salva_file_json(filename, data):
         pass
 
 
-# Inizializzazione stato box e lpu
+# Inizializzazione stato box e lpu di default
 BOX_DEFAULT = {
     "Box 1 (Ingresso)": ["Milo", "Nina"],
     "Box 2 (Cuccioli)": ["Romeo", "Pallina"],
@@ -50,9 +50,7 @@ BOX_DEFAULT = {
     "Reparto Degenza": ["Arturo", "Mimì"]
 }
 
-LPU_DEFAULT = {
-    # Esempio: "Nome Cognome": {"ore_totali": 50.0, "ore_fatte": 0.0}
-}
+LPU_DEFAULT = {}
 
 if "struttura_box" not in st.session_state:
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
@@ -292,6 +290,8 @@ if menu == "📅 Inserisci":
 
             note = st.text_area("Note aggiuntive (opzionale):")
 
+        # Ricarica sempre i box aggiornati dal file json
+        st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
         lista_nomi_box = list(st.session_state.struttura_box.keys())
         box_suggeriti = get_box_frequenti_volontario(volontario_finale)
 
@@ -371,6 +371,7 @@ elif menu == "👀 Panoramica":
     st.header("Gestione Turni e Copertura Box")
 
     turni_attuali = carica_file_json(DB_TURNI, [])
+    st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
 
     if is_weekend_o_venerdi_sera:
         scelte_visualizzazione = [label_corr, label_pros]
@@ -419,7 +420,7 @@ elif menu == "👀 Panoramica":
                         st.caption("Nessun volontario registrato.")
                         st.markdown("**Box scoperti:**")
                         for b in sorted(lista_tutti_box):
-                            gatti_nel_box = ", ".join(st.session_state.struttura_box[b])
+                            gatti_nel_box = ", ".join(st.session_state.struttura_box.get(b, []))
                             st.error(f"❌ **{b}** (🐱 {gatti_nel_box})")
                         return
 
@@ -511,7 +512,7 @@ elif menu == "👀 Panoramica":
                     st.markdown("**Box scoperti:**")
                     if box_scoperti:
                         for b in sorted(box_scoperti):
-                            gatti_nel_box = ", ".join(st.session_state.struttura_box[b])
+                            gatti_nel_box = ", ".join(st.session_state.struttura_box.get(b, []))
                             st.error(f"❌ **{b}** (🐱 {gatti_nel_box})")
                     else:
                         st.success("Tutti i box sono coperti!")
@@ -525,6 +526,9 @@ elif menu == "👀 Panoramica":
 
 elif menu == "📦 Box & Gatti":
     st.header("Anagrafica Box e Gatti Residenti")
+    
+    # Sincronizza sempre con il file JSON salvato
+    st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
 
     if not st.session_state.is_admin:
         st.warning(
@@ -537,7 +541,7 @@ elif menu == "📦 Box & Gatti":
             st.markdown(f"📦 **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱 *Gatti presenti:* {gatti_str}", unsafe_allow_html=True)
             st.markdown("---")
     else:
-        st.markdown("Gestisci i box del gattile e vedi quali gatti ci sono dentro (Modalità Admin attiva).")
+        st.markdown("Gestisci i box del gattile e vedi quali gatti ci sono dentro (Modalità Admin attiva). I dati vengono salvati nel file `box_gattile.json`.")
 
         with st.form("form_aggiungi_box"):
             st.subheader("Crea un nuovo Box / Zona")
@@ -554,7 +558,7 @@ elif menu == "📦 Box & Gatti":
                     gatti_list = [g.strip() for g in nuovi_gatti_box.split(",") if g.strip()]
                     st.session_state.struttura_box[nuovo_nome_box.strip()] = gatti_list
                     salva_file_json(DB_BOX, st.session_state.struttura_box)
-                    st.success(f"Box '{nuovo_nome_box}' aggiunto con successo!")
+                    st.success(f"Box '{nuovo_nome_box}' aggiunto e salvato con successo!")
                     st.rerun()
 
         st.markdown("---")
@@ -569,6 +573,7 @@ elif menu == "📦 Box & Gatti":
                 if st.button("Elimina Box", key=f"del_box_{nome_box}"):
                     del st.session_state.struttura_box[nome_box]
                     salva_file_json(DB_BOX, st.session_state.struttura_box)
+                    st.success("Box eliminato!")
                     st.rerun()
             
             # Modifica rapida gatti nel box
@@ -581,7 +586,7 @@ elif menu == "📦 Box & Gatti":
                         nuova_lista = [g.strip() for g in stringa_modificata.split(",") if g.strip()]
                         st.session_state.struttura_box[nome_box] = nuova_lista
                         salva_file_json(DB_BOX, st.session_state.struttura_box)
-                        st.success("Lista gatti aggiornata!")
+                        st.success("Lista gatti aggiornata e salvata nel database JSON!")
                         st.rerun()
             st.markdown("---")
 
@@ -589,6 +594,7 @@ elif menu == "📊 Statistiche":
     st.header("📊 Statistiche Presenze Box")
     
     tutti_i_turni = carica_file_json(DB_TURNI, [])
+    st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
     tutte_le_settimane = sorted(
         list(set(t.get("settimana") for t in tutti_i_turni))
     )
@@ -803,6 +809,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
         with tab_lpu_inserisci:
             st.subheader("📅 Registra un Turno per LPU")
             lpu_nomi_disponibili = list(st.session_state.lpu_data.keys())
+            st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
             
             if not lpu_nomi_disponibili:
                 st.warning("Prima devi registrare almeno un LPU nella scheda 'Monte Ore & Ore Mancanti'.")
@@ -914,6 +921,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             nuove_ore_val = st.number_input("Nuovo monte ore:", min_value=0.5, value=float(tl.get("ore", 3.5)), step=0.5, key=f"n_ore_{tl['id']}")
                             nuove_note_val = st.text_area("Note:", value=tl.get("note", ""), key=f"n_note_{tl['id']}")
                             
+                            st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
                             lista_box_mod_lpu = list(st.session_state.struttura_box.keys())
                             nuovi_box_val = st.multiselect("Box assegnati:", lista_box_mod_lpu, default=[b for b in tl.get("box", []) if b in lista_box_mod_lpu], key=f"n_box_{tl['id']}")
                             
