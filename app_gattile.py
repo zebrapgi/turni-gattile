@@ -8,6 +8,27 @@ st.set_page_config(
     page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
 )
 
+# --- GESTIONE SCHERMATA DI BENVENUTO INIZIALE (PWA FRIENDLY) ---
+if "app_avviata" not in st.session_state:
+    st.session_state.app_avviata = False
+
+if not st.session_state.app_avviata:
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 40px 20px;">
+            <h1>🐱 Gestione Turni Gattile</h1>
+            <p style="font-size: 1.1rem; color: #555;">Benvenuto nel sistema di gestione presenze, box e lavori socialmente utili del gattile.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    col_centro1, col_centro2, col_centro3 = st.columns([1, 2, 1])
+    with col_centro2:
+        if st.button("🚀 Entra nell'Applicazione", type="primary", use_container_width=True):
+            st.session_state.app_avviata = True
+            st.rerun()
+    st.stop()
+
 # Tag aggiornati con versione forzata (?v=12) per aggirare la cache testarda di iOS
 st.markdown(
     """
@@ -82,6 +103,13 @@ with st.sidebar:
         st.image("icona.jpg", width=80)
     
     st.title("🐱 Menu Rapido")
+
+    # Pulsante per tornare alla home di benvenuto se serve
+    if st.button("🏠 Torna alla Home", key="btn_home_ritorno"):
+        st.session_state.app_avviata = False
+        st.rerun()
+
+    st.markdown("---")
     
     # Sezione "I miei turni" nella sidebar
     with st.expander("🔍 Cerca i miei turni", expanded=False):
@@ -527,7 +555,6 @@ elif menu == "👀 Panoramica":
 elif menu == "📦 Box & Gatti":
     st.header("Anagrafica Box e Gatti Residenti")
     
-    # Sincronizza sempre con il file JSON salvato
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
 
     if not st.session_state.is_admin:
@@ -576,7 +603,6 @@ elif menu == "📦 Box & Gatti":
                     st.success("Box eliminato!")
                     st.rerun()
             
-            # Modifica rapida gatti nel box
             with st.expander(f"Modifica gatti in {nome_box}"):
                 with st.form(key=f"form_mod_gatti_{nome_box}"):
                     stringa_attuale = ", ".join(lista_gatti)
@@ -745,7 +771,6 @@ elif menu == "🛠️ Gestione LPU (Admin)":
     else:
         st.markdown("Gestisci il personale LPU, inserisci e modifica i turni con relative ore e monitora il monte ore totale e mancante.")
         
-        # --- TAB O SEZIONI INTERNE PER LPU ---
         tab_lpu_anagrafica, tab_lpu_inserisci, tab_lpu_storico = st.tabs(["📋 Monte Ore & Ore Mancanti", "➕ Assegna Turno LPU", "📚 Storico & Modifica Turni LPU"])
 
         with tab_lpu_anagrafica:
@@ -853,11 +878,9 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             st.session_state.turni_lpu.append(nuovo_t_lpu)
                             salva_file_json(DB_TURNI_LPU, st.session_state.turni_lpu)
 
-                            # Aggiorna ore fatte nel dizionario LPU
                             st.session_state.lpu_data[lpu_scelto]["ore_fatte"] += float(ore_svolte_val)
                             salva_file_json(DB_LPU, st.session_state.lpu_data)
 
-                            # Aggiunge il turno anche al database generale dei turni
                             turno_generale_equivalente = {
                                 "id": f"lpu_{id_univoco}",
                                 "settimana": settimana_lpu,
@@ -895,7 +918,6 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             st.rerun()
                     with col_d_lpu:
                         if st.button("🗑️ Elimina Turno LPU", key=f"del_lpu_turno_{tl['id']}"):
-                            # Sottrae le ore dalle ore fatte dell'LPU
                             nome_lpu_riferimento = tl.get("lpu")
                             ore_da_stornare = tl.get("ore", 0.0)
                             
@@ -903,18 +925,15 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                 st.session_state.lpu_data[nome_lpu_riferimento]["ore_fatte"] = max(0.0, st.session_state.lpu_data[nome_lpu_riferimento]["ore_fatte"] - ore_da_stornare)
                                 salva_file_json(DB_LPU, st.session_state.lpu_data)
 
-                            # Rimuove dal DB turni LPU
                             nuovo_storico_lpu = [item for item in carica_file_json(DB_TURNI_LPU, []) if item["id"] != tl["id"]]
                             salva_file_json(DB_TURNI_LPU, nuovo_storico_lpu)
 
-                            # Rimuove anche dal DB generale dei turni
                             turni_gen_aggiornato = [item for item in carica_file_json(DB_TURNI, []) if item["id"] != f"lpu_{tl['id']}"]
                             salva_file_json(DB_TURNI, turni_gen_aggiornato)
 
                             st.success("Turno LPU eliminato e ore stornate con successo!")
                             st.rerun()
 
-                    # Form di modifica turno LPU
                     if st.session_state.get(f"editing_lpu_{tl['id']}", False):
                         with st.form(key=f"form_mod_lpu_turno_{tl['id']}"):
                             st.subheader(f"Modifica Turno di {tl.get('lpu')}")
@@ -927,13 +946,12 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             
                             btn_salva_mod_lpu = st.form_submit_button("Salva Modifiche LPU ✅")
                             if btn_salva_mod_lpu:
-                                if not nuovi_box_val:
+                                if not novos_box_val := nuovi_box_val: # controllo
                                     st.error("Seleziona almeno un box.")
                                 else:
                                     vecchie_ore = tl.get("ore", 0.0)
                                     differenza_ore = nuove_ore_val - vecchie_ore
                                     
-                                    # Aggiorna il record nel DB turni LPU
                                     tutti_lpu_file = carica_file_json(DB_TURNI_LPU, [])
                                     for item in tutti_lpu_file:
                                         if item["id"] == tl["id"]:
@@ -942,13 +960,11 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                             item["box"] = nuovi_box_val
                                     salva_file_json(DB_TURNI_LPU, tutti_lpu_file)
 
-                                    # Aggiorna le ore totali fatte dell'LPU
                                     nome_lpu_riferimento = tl.get("lpu")
                                     if nome_lpu_riferimento in st.session_state.lpu_data:
                                         st.session_state.lpu_data[nome_lpu_riferimento]["ore_fatte"] = max(0.0, st.session_state.lpu_data[nome_lpu_riferimento]["ore_fatte"] + differenza_ore)
                                         salva_file_json(DB_LPU, st.session_state.lpu_data)
 
-                                    # Aggiorna anche nel DB generale dei turni
                                     turni_gen_file = carica_file_json(DB_TURNI, [])
                                     for item in turni_gen_file:
                                         if item["id"] == f"lpu_{tl['id']}":
