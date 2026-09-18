@@ -687,7 +687,7 @@ elif menu == "📦 Box & Gatti":
                 else "Nessun gatto registrato in questo box"
             )
             st.markdown(
-                f"📦 **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱 *Gatti"
+                f" **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱 *Gatti"
                 f" presenti:* {gatti_str}",
                 unsafe_allow_html=True,
             )
@@ -740,7 +740,7 @@ elif menu == "📦 Box & Gatti":
                     ", ".join(lista_gatti) if lista_gatti else "Nessun gatto"
                 )
                 st.markdown(
-                    f"📦 **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱"
+                    f" **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱"
                     f" *Gatti:* {gatti_str}",
                     unsafe_allow_html=True,
                 )
@@ -841,7 +841,7 @@ elif menu == "📊 Statistiche":
         for idx, (box, conteggio) in enumerate(lista_box_ordinata):
             col_corrente = cols[idx % 3]
             with col_corrente:
-                st.metric(label=f"📦 {box}", value=f"{conteggio} turni")
+                st.metric(label=f" {box}", value=f"{conteggio} turni")
 
         st.markdown("---")
         col_grafico, col_tabella = st.columns([1.5, 1])
