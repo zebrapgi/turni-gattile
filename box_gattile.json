@@ -1,6 +1,11 @@
 {
-    "Box 1 (Ingresso)": ["Milo", "Nina"],
-    "Box 2 (Cuccioli)": ["Romeo", "Pallina"],
-    "Box 3 (Sala Comune)": ["Simba", "Luna"],
-    "Reparto Degenza": ["Arturo", "Mimì"]
+    "🟢 Box verde": {},
+    "🟠 Box arancione": {},
+    "🔴 Box rosso": {},
+    "🔵 Box blu": {},
+    "🟡 Box giallo": {},
+    "🍼 Nursery": {},
+    "🩺 Infermieria": {},
+    "🏠 Box Castioni": {},
+    "🌿 Esterni (oasi felina)": {}
 }
