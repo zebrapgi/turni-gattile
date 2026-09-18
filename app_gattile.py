@@ -22,7 +22,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- GESTIONE DATI PERSISTENTI TRAMITE GITHUB / JSON ---
+# --- INIZIALIZZAZIONE FIREBASE & GESTIONE DATI PERSISTENTI ---
+if not firebase_admin._apps:
+    cred_dict = dict(st.secrets["firebase"])
+    if "private_key" in cred_dict:
+        cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+    cred = credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
+
 DB_TURNI = "turni_gattile.json"
 DB_BOX = "box_gattile.json"
 DB_LPU = "lpu_gattile.json"
@@ -31,20 +40,23 @@ DB_TURNI_LPU = "turni_lpu.json"
 
 def carica_file_json(filename, default_val):
     try:
-        if os.path.exists(filename):
-            with open(filename, "r") as f:
-                return json.load(f)
+        doc_id = filename.replace(".json", "")
+        doc = db.collection("gattile_data").document(doc_id).get()
+        if doc.exists:
+            data = doc.to_dict().get("data")
+            return data if data is not None else default_val
         return default_val
-    except Exception:
+    except Exception as e:
+        st.error(f"Errore nel caricamento da database ({filename}): {e}")
         return default_val
 
 
 def salva_file_json(filename, data):
     try:
-        with open(filename, "w") as f:
-            json.dump(data, f, indent=4)
+        doc_id = filename.replace(".json", "")
+        db.collection("gattile_data").document(doc_id).set({"data": data})
     except Exception as e:
-        pass
+        st.error(f"Errore nel salvataggio su database ({filename}): {e}")
 
 
 # Inizializzazione stato box e lpu di default
@@ -57,12 +69,14 @@ BOX_DEFAULT = {
 
 LPU_DEFAULT = {}
 
-# Sincronizzazione immediata e robusta con il file box_gattile.json
+# Sincronizzazione immediata con Firebase Firestore
 if "struttura_box" not in st.session_state:
-    st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
-    # Se il file non esiste o è vuoto, lo inizializziamo su disco
-    if not os.path.exists(DB_BOX):
-        salva_file_json(DB_BOX, st.session_state.struttura_box)
+    val_box = carica_file_json(DB_BOX, None)
+    if val_box is None:
+        st.session_state.struttura_box = BOX_DEFAULT
+        salva_file_json(DB_BOX, BOX_DEFAULT)
+    else:
+        st.session_state.struttura_box = val_box
 
 if "lpu_data" not in st.session_state:
     st.session_state.lpu_data = carica_file_json(DB_LPU, LPU_DEFAULT)
@@ -246,7 +260,6 @@ def get_box_frequenti_volontario(nome_volontario):
     turni_esistenti = carica_file_json(DB_TURNI, [])
     conteggio_box = {}
 
-    # Ricarichiamo sempre i box aggiornati
     struttura_box_corrente = carica_file_json(DB_BOX, BOX_DEFAULT)
 
     for t in turni_esistenti:
@@ -358,7 +371,6 @@ if menu == "📅 Inserisci":
 
             note = st.text_area("Note aggiuntive (opzionale):")
 
-        # Ricarica sempre i box aggiornati dal file json per l'inserimento
         st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
         lista_nomi_box = list(st.session_state.struttura_box.keys())
         box_suggeriti = get_box_frequenti_volontario(volontario_finale)
@@ -534,7 +546,6 @@ elif menu == "👀 Panoramica":
                         if t["note"]:
                             st.caption(f"Note: {t['note']}")
 
-                        # --- MODIFICA ED ELIMINAZIONE PROTETTE DA AREA ADMIN ---
                         if st.session_state.is_admin:
                             col_mod, col_del = st.columns(2)
                             with col_mod:
@@ -672,7 +683,6 @@ elif menu == "👀 Panoramica":
 elif menu == "📦 Box & Gatti":
     st.header("Anagrafica Box e Gatti")
 
-    # Sincronizzazione in tempo reale con il file box_gattile.json
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
 
     if not st.session_state.is_admin:
@@ -724,8 +734,7 @@ elif menu == "📦 Box & Gatti":
                     ] = gatti_list
                     salva_file_json(DB_BOX, st.session_state.struttura_box)
                     st.success(
-                        f"Box '{nuovo_nome_box}' aggiunto e salvato in"
-                        " `box_gattile.json` con successo!"
+                        f"Box '{nuovo_nome_box}' aggiunto e salvato su database con successo!"
                     )
                     st.rerun()
 
@@ -749,7 +758,7 @@ elif menu == "📦 Box & Gatti":
                 if st.button("Elimina Box", key=f"del_box_{nome_box}"):
                     del st.session_state.struttura_box[nome_box]
                     salva_file_json(DB_BOX, st.session_state.struttura_box)
-                    st.success("Box eliminato e file aggiornato!")
+                    st.success("Box eliminato e database aggiornato!")
                     st.rerun()
 
             with st.expander(f"Modifica gatti in {nome_box}"):
@@ -772,7 +781,7 @@ elif menu == "📦 Box & Gatti":
                         st.session_state.struttura_box[nome_box] = nuova_lista
                         salva_file_json(DB_BOX, st.session_state.struttura_box)
                         st.success(
-                            "Lista gatti aggiornata e salvata nel file JSON!"
+                            "Lista gatti aggiornata e salvata nel database!"
                         )
                         st.rerun()
             st.markdown("---")
