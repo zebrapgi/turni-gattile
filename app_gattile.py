@@ -858,11 +858,11 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                 "fascia": fascia_lpu,
                                 "orario": orario_lpu_str,
                                 "box_fatti": box_assegnati_lpu,
-                                "note": f"[LPU - {ore_svolte_val}h] {nota_lpu}"
+                                "note": f"[LPU - {ore_svolته_val}h] {nota_lpu}" if False else f"[LPU - {ore_svolte_val}h] {nota_lpu}"
                             }
-                             turni_gen = carica_file_json(DB_TURNI, [])
-                             turni_gen.append(turno_generale_equivalente)
-                             salva_file_json(DB_TURNI, turni_gen)
+                            turni_gen = carica_file_json(DB_TURNI, [])
+                            turni_gen.append(turno_generale_equivalente)
+                            salva_file_json(DB_TURNI, turni_gen)
 
                             st.success(f"Turno registrato per {lpu_scelto}! Aggiunte {ore_svolte_val} ore.")
                             st.rerun()
