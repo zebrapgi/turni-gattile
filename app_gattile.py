@@ -668,7 +668,7 @@ elif menu == "👀 Panoramica":
             st.markdown("---")
 
 elif menu == "📦 Box & Gatti":
-    st.header("Anagrafica Box e Gatti Residenti")
+    st.header("Anagrafica Box e Gatti")
 
     # Sincronizzazione in tempo reale con il file box_gattile.json
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
@@ -695,8 +695,7 @@ elif menu == "📦 Box & Gatti":
     else:
         st.markdown(
             "Gestisci i box del gattile e vedi quali gatti ci sono dentro"
-            " (Modalità Admin attiva). Le modifiche vengono salvate"
-            " direttamente nel file **`box_gattile.json`**."
+            " (Modalità Admin attiva)."
         )
 
         with st.form("form_aggiungi_box"):
