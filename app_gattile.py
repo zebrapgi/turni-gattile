@@ -944,8 +944,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             lista_box_mod_lpu = list(st.session_state.struttura_box.keys())
                             nuovi_box_val = st.multiselect("Box assegnati:", lista_box_mod_lpu, default=[b for b in tl.get("box", []) if b in lista_box_mod_lpu], key=f"n_box_{tl['id']}")
                             
-                            
-                                   btn_salva_mod_lpu = st.form_submit_button("Salva Modifiche LPU ✅")
+                            btn_salva_mod_lpu = st.form_submit_button("Salva Modifiche LPU ✅")
                             if btn_salva_mod_lpu:
                                 if not nuovi_box_val:
                                     st.error("Seleziona almeno un box.")
@@ -978,4 +977,3 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                     st.rerun()
 
                     st.markdown("---")
-
