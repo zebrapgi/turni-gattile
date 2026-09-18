@@ -179,7 +179,6 @@ with st.sidebar:
 
     # Sezione "Admin / Simulatore"
     with st.expander("🔒 Area Admin", expanded=False):
-        # Utilizza st.secrets se configurata, altrimenti ripiega su valore di fallback
         ADMIN_PASSWORD_CORRETTA = st.secrets.get("ADMIN_PASSWORD", "gattile2026")
         if not st.session_state.is_admin:
             with st.form("form_login_admin_side"):
@@ -313,22 +312,6 @@ if menu == "📅 Inserisci":
         "Per quale settimana vuoi inserire il turno?",
         opzioni_settimana,
         horizontal=True,
-    )
-
-    # --- INDICATORI DI COPERTURA METRICI ---
-    turni_sett_ins = [t for t in st.session_state.turni if t.get("settimana") == settimana_scelta]
-    giorni_m = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
-    fasce_m = ["Mattina", "Pomeriggio"]
-    coperti_m = sum(1 for g in giorni_m for f in fasce_m if any(t.get("giorno") == g and t.get("fascia") == f for t in turni_sett_ins))
-    scoperti_m = 14 - coperti_m
-
-    col_m1, col_m2 = st.columns(2)
-    col_m1.metric("Fasce Coperte", f"{coperti_m}/14")
-    col_m2.metric(
-        "Fasce Ancora Liberi",
-        scoperti_m,
-        delta=f"{scoperti_m} da coprire" if scoperti_m > 0 else "Tutto coperto! 🎉",
-        delta_color="inverse" if scoperti_m > 0 else "normal",
     )
     st.markdown("---")
 
@@ -504,7 +487,6 @@ if menu == "📅 Inserisci":
                             "box_fatti": box_fatti,
                             "note": note,
                         }
-                        # Salva atomico su DB e aggiorna lo stato locale
                         aggiungi_turno_atomico(DB_TURNI, nuovo_turno)
                         st.session_state.turni.append(nuovo_turno)
                         st.toast(f"Turno prenotato per {volontario_finale}! 🐾", icon="✅")
@@ -533,7 +515,7 @@ elif menu == "👀 Panoramica":
         t for t in turni_attuali if t.get("settimana") == settimana_vista
     ]
 
-    # --- INDICATORI DI COPERTURA METRICI ---
+    # --- INDICATORI DI COPERTURA METRICI (Presenti unicamente in Panoramica) ---
     giorni_m = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
     fasce_m = ["Mattina", "Pomeriggio"]
     coperti_m = sum(1 for g in giorni_m for f in fasce_m if any(t.get("giorno") == g and t.get("fascia") == f for t in turni_filtrati))
@@ -619,7 +601,6 @@ elif menu == "👀 Panoramica":
                                     f"🗑️ Elimina ({t['volontario']})",
                                     key=f"del_{giorno}_{fascia_nome}_{t['id']}",
                                 ):
-                                    # Rimozione atomica e aggiornamento session_state
                                     rimuovi_turno_atomico(DB_TURNI, t)
                                     st.session_state.turni = [
                                         item for item in st.session_state.turni if item["id"] != t["id"]
@@ -1239,7 +1220,6 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                 item for item in st.session_state.turni_lpu if item["id"] != tl["id"]
                             ]
 
-                            # Rimuove il corrispondente turno generale
                             turno_gen_target = next((item for item in st.session_state.turni if item["id"] == f"lpu_{tl['id']}"), None)
                             if turno_gen_target:
                                 rimuovi_turno_atomico(DB_TURNI, turno_gen_target)
