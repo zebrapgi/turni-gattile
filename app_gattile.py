@@ -37,7 +37,8 @@ DB_BOX = "box_gattile.json"
 DB_LPU = "lpu_gattile.json"
 DB_TURNI_LPU = "turni_lpu.json"
 
-
+# CACHE STREAMLIT: Riduce le letture Firebase mantenendo i dati in cache per 30 secondi
+@st.cache_data(ttl=30)
 def carica_file_json(filename, default_val):
     try:
         doc_id = filename.replace(".json", "")
@@ -50,13 +51,35 @@ def carica_file_json(filename, default_val):
         st.error(f"Errore nel caricamento da database ({filename}): {e}")
         return default_val
 
-
 def salva_file_json(filename, data):
     try:
         doc_id = filename.replace(".json", "")
         db.collection("gattile_data").document(doc_id).set({"data": data})
+        st.cache_data.clear()  # Invalida la cache per forzare il riallineamento dei dati
     except Exception as e:
         st.error(f"Errore nel salvataggio su database ({filename}): {e}")
+
+# OPERAZIONE ATOMICA: Inserisce un singolo elemento nell'array prevenendo sovrascritture concorrenti
+def aggiungi_turno_atomico(filename, nuovo_turno):
+    try:
+        doc_id = filename.replace(".json", "")
+        db.collection("gattile_data").document(doc_id).set(
+            {"data": firestore.ArrayUnion([nuovo_turno])}, merge=True
+        )
+        st.cache_data.clear()
+    except Exception as e:
+        st.error(f"Errore nell'inserimento del turno: {e}")
+
+# OPERAZIONE ATOMICA: Rimuove un singolo elemento dall'array in modo sicuro
+def rimuovi_turno_atomico(filename, turno_da_rimuovere):
+    try:
+        doc_id = filename.replace(".json", "")
+        db.collection("gattile_data").document(doc_id).update(
+            {"data": firestore.ArrayRemove([turno_da_rimuovere])}
+        )
+        st.cache_data.clear()
+    except Exception as e:
+        st.error(f"Errore nella rimozione del turno: {e}")
 
 
 # Inizializzazione stato box e lpu di default
@@ -69,7 +92,7 @@ BOX_DEFAULT = {
 
 LPU_DEFAULT = {}
 
-# Sincronizzazione immediata con Firebase Firestore
+# Sincronizzazione iniziale e caricamento nello stato di sessione
 if "struttura_box" not in st.session_state:
     val_box = carica_file_json(DB_BOX, None)
     if val_box is None:
@@ -90,7 +113,7 @@ if "turni" not in st.session_state:
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 
-# --- GESTIONE ORARIO ITALIANO ESATTO (Bypassa il fuso orario del server cloud) ---
+# --- GESTIONE ORARIO ITALIANO ESATTO ---
 tz_italia = pytz.timezone("Europe/Rome")
 adesso = datetime.now(tz_italia)
 giorno_settimana = adesso.weekday()  # 0=Lunedì, 4=Venerdì, 5=Sabato, 6=Domenica
@@ -102,18 +125,17 @@ is_weekend_reale = (giorno_settimana > 4) or (
 )
 is_weekend_o_venerdi_sera = is_weekend_reale
 
-# --- BARRA LATERALE (SIDEBAR) PER: I MIEI TURNI & ADMIN ---
+# --- BARRA LATERALE (SIDEBAR) ---
 with st.sidebar:
     if os.path.exists("icona.jpg"):
         st.image("icona.jpg", width=80)
 
     st.title("🐱 Menu Rapido")
-
     st.markdown("---")
 
-    # Sezione "I miei turni" nella sidebar
+    # Sezione "I miei turni" nella sidebar (usa la memoria di sessione invece di ri-interrogare la DB)
     with st.expander("🔍 Cerca i miei turni", expanded=False):
-        volontari_esistenti_side = carica_file_json(DB_TURNI, [])
+        volontari_esistenti_side = st.session_state.turni
         nomi_side = sorted(
             list(
                 set(
@@ -154,7 +176,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Sezione "Admin / Simulatore" nella sidebar
+    # Sezione "Admin / Simulatore"
     with st.expander("🔒 Area Admin", expanded=False):
         ADMIN_PASSWORD_CORRETTA = "gattile2026"
         if not st.session_state.is_admin:
@@ -240,7 +262,7 @@ if is_weekend_o_venerdi_sera:
 
 
 def get_lista_volontari():
-    turni_esistenti = carica_file_json(DB_TURNI, [])
+    turni_esistenti = st.session_state.turni
     nomi = set()
     for t in turni_esistenti:
         nome = t.get("volontario", "").strip()
@@ -257,10 +279,9 @@ def get_box_frequenti_volontario(nome_volontario):
     ):
         return []
 
-    turni_esistenti = carica_file_json(DB_TURNI, [])
+    turni_esistenti = st.session_state.turni
     conteggio_box = {}
-
-    struttura_box_corrente = carica_file_json(DB_BOX, BOX_DEFAULT)
+    struttura_box_corrente = st.session_state.struttura_box
 
     for t in turni_esistenti:
         if (
@@ -293,7 +314,6 @@ if menu == "📅 Inserisci":
 
     volontari_registrati = get_lista_volontari()
 
-    # --- SEZIONE NOME FUORI DAL FORM PER ESSERE LIBERA E REATTIVA ---
     st.markdown("### 👤 1. Il tuo Nome")
     scelte_volontario = (
         ["-- Seleziona il tuo nome --"]
@@ -319,7 +339,6 @@ if menu == "📅 Inserisci":
 
     st.markdown("---")
 
-    # --- FORM PER IL RESTO DEL TURNO ---
     with st.form("form_turno"):
         st.markdown("### 🕒 2. Dettagli Turno e Box")
         col1, col2 = st.columns(2)
@@ -371,7 +390,6 @@ if menu == "📅 Inserisci":
 
             note = st.text_area("Note aggiuntive (opzionale):")
 
-        st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
         lista_nomi_box = list(st.session_state.struttura_box.keys())
         box_suggeriti = get_box_frequenti_volontario(volontario_finale)
 
@@ -437,7 +455,7 @@ if menu == "📅 Inserisci":
                         " per poter registrare il turno!"
                     )
                 else:
-                    lista_turni = carica_file_json(DB_TURNI, [])
+                    lista_turni = st.session_state.turni
 
                     volontario_normalizzato = volontario_finale.strip().lower()
                     doppione_trovato = any(
@@ -466,8 +484,9 @@ if menu == "📅 Inserisci":
                             "box_fatti": box_fatti,
                             "note": note,
                         }
-                        lista_turni.append(nuovo_turno)
-                        salva_file_json(DB_TURNI, lista_turni)
+                        # Salva atomico su DB e aggiorna lo stato locale
+                        aggiungi_turno_atomico(DB_TURNI, nuovo_turno)
+                        st.session_state.turni.append(nuovo_turno)
                         st.success(
                             f"Turno registrato con successo per"
                             f" {volontario_finale}!"
@@ -476,8 +495,7 @@ if menu == "📅 Inserisci":
 elif menu == "👀 Panoramica":
     st.header("Gestione Turni e Copertura Box")
 
-    turni_attuali = carica_file_json(DB_TURNI, [])
-    st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
+    turni_attuali = st.session_state.turni
 
     if is_weekend_o_venerdi_sera:
         scelte_visualizzazione = [label_corr, label_pros]
@@ -564,16 +582,11 @@ elif menu == "👀 Panoramica":
                                     f"🗑️ Elimina ({t['volontario']})",
                                     key=f"del_{giorno}_{fascia_nome}_{t['id']}",
                                 ):
-                                    lista_aggiornata = [
-                                        item
-                                        for item in carica_file_json(
-                                            DB_TURNI, []
-                                        )
-                                        if item["id"] != t["id"]
+                                    # Rimozione atomica e aggiornamento session_state
+                                    rimuovi_turno_atomico(DB_TURNI, t)
+                                    st.session_state.turni = [
+                                        item for item in st.session_state.turni if item["id"] != t["id"]
                                     ]
-                                    salva_file_json(
-                                        DB_TURNI, lista_aggiornata
-                                    )
                                     if f"editing_{t['id']}" in st.session_state:
                                         del st.session_state[
                                             f"editing_{t['id']}"
@@ -630,21 +643,12 @@ elif menu == "👀 Panoramica":
                                                 " box."
                                             )
                                         else:
-                                            lista_completa = carica_file_json(
-                                                DB_TURNI, []
-                                            )
-                                            for item in lista_completa:
+                                            for item in st.session_state.turni:
                                                 if item["id"] == t["id"]:
-                                                    item["orario"] = (
-                                                        nuovo_orario
-                                                    )
+                                                    item["orario"] = nuovo_orario
                                                     item["note"] = nuove_note
-                                                    item[
-                                                        "box_fatti"
-                                                    ] = nuovi_box
-                                            salva_file_json(
-                                                DB_TURNI, lista_completa
-                                            )
+                                                    item["box_fatti"] = nuovi_box
+                                            salva_file_json(DB_TURNI, st.session_state.turni)
                                             st.session_state[
                                                 f"editing_{t['id']}"
                                             ] = False
@@ -682,8 +686,6 @@ elif menu == "👀 Panoramica":
 
 elif menu == "📦 Box & Gatti":
     st.header("Anagrafica Box e Gatti")
-
-    st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
 
     if not st.session_state.is_admin:
         st.warning(
@@ -789,8 +791,7 @@ elif menu == "📦 Box & Gatti":
 elif menu == "📊 Statistiche":
     st.header("📊 Statistiche Presenze Box")
 
-    tutti_i_turni = carica_file_json(DB_TURNI, [])
-    st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
+    tutti_i_turni = st.session_state.turni
     tutte_le_settimane = sorted(
         list(set(t.get("settimana") for t in tutti_i_turni))
     )
@@ -884,7 +885,7 @@ elif menu == "📊 Statistiche":
 elif menu == "📚 Archivio":
     st.header("📚 Archivio Storico delle Settimane Passate")
 
-    tutti_i_turni = carica_file_json(DB_TURNI, [])
+    tutti_i_turni = st.session_state.turni
     tutte_le_settimane = sorted(
         list(set(t.get("settimana") for t in tutti_i_turni))
     )
@@ -1049,9 +1050,6 @@ elif menu == "🛠️ Gestione LPU (Admin)":
         with tab_lpu_inserisci:
             st.subheader("📅 Registra un Turno per LPU")
             lpu_nomi_disponibili = list(st.session_state.lpu_data.keys())
-            st.session_state.struttura_box = carica_file_json(
-                DB_BOX, BOX_DEFAULT
-            )
 
             if not lpu_nomi_disponibili:
                 st.warning(
@@ -1129,8 +1127,8 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                 "box": box_assegnati_lpu,
                                 "note": nota_lpu,
                             }
+                            aggiungi_turno_atomico(DB_TURNI_LPU, nuovo_t_lpu)
                             st.session_state.turni_lpu.append(nuovo_t_lpu)
-                            salva_file_json(DB_TURNI_LPU, st.session_state.turni_lpu)
 
                             st.session_state.lpu_data[lpu_scelto][
                                 "ore_fatte"
@@ -1149,9 +1147,8 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                     f"[LPU - {ore_svolte_val}h] {nota_lpu}"
                                 ),
                             }
-                            turni_gen = carica_file_json(DB_TURNI, [])
-                            turni_gen.append(turno_generale_equivalente)
-                            salva_file_json(DB_TURNI, turni_gen)
+                            aggiungi_turno_atomico(DB_TURNI, turno_generale_equivalente)
+                            st.session_state.turni.append(turno_generale_equivalente)
 
                             st.success(
                                 f"Turno registrato per {lpu_scelto}! Aggiunte"
@@ -1161,7 +1158,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
 
         with tab_lpu_storico:
             st.subheader("📚 Storico, Modifica ed Eliminazione Turni LPU")
-            tutti_turni_lpu = carica_file_json(DB_TURNI_LPU, [])
+            tutti_turni_lpu = st.session_state.turni_lpu
 
             if not tutti_turni_lpu:
                 st.info("Nessun turno LPU registrato.")
@@ -1210,19 +1207,18 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                     DB_LPU, st.session_state.lpu_data
                                 )
 
-                            nuovo_storico_lpu = [
-                                item
-                                for item in carica_file_json(DB_TURNI_LPU, [])
-                                if item["id"] != tl["id"]
+                            rimuovi_turno_atomico(DB_TURNI_LPU, tl)
+                            st.session_state.turni_lpu = [
+                                item for item in st.session_state.turni_lpu if item["id"] != tl["id"]
                             ]
-                            salva_file_json(DB_TURNI_LPU, nuovo_storico_lpu)
 
-                            turni_gen_aggiornato = [
-                                item
-                                for item in carica_file_json(DB_TURNI, [])
-                                if item["id"] != f"lpu_{tl['id']}"
-                            ]
-                            salva_file_json(DB_TURNI, turni_gen_aggiornato)
+                            # Rimuove il corrispondente turno generale
+                            turno_gen_target = next((item for item in st.session_state.turni if item["id"] == f"lpu_{tl['id']}"), None)
+                            if turno_gen_target:
+                                rimuovi_turno_atomico(DB_TURNI, turno_gen_target)
+                                st.session_state.turni = [
+                                    item for item in st.session_state.turni if item["id"] != f"lpu_{tl['id']}"
+                                ]
 
                             st.success(
                                 "Turno LPU eliminato e ore stornate con"
@@ -1246,9 +1242,6 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                 key=f"n_note_{tl['id']}",
                             )
 
-                            st.session_state.struttura_box = carica_file_json(
-                                DB_BOX, BOX_DEFAULT
-                            )
                             lista_box_mod_lpu = list(
                                 st.session_state.struttura_box.keys()
                             )
@@ -1273,16 +1266,13 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                     vecchie_ore = tl.get("ore", 0.0)
                                     differenza_ore = nuove_ore_val - vecchie_ore
 
-                                    tutti_lpu_file = carica_file_json(
-                                        DB_TURNI_LPU, []
-                                    )
-                                    for item in tutti_lpu_file:
+                                    for item in st.session_state.turni_lpu:
                                         if item["id"] == tl["id"]:
                                             item["ore"] = float(nuove_ore_val)
                                             item["note"] = nuove_note_val
                                             item["box"] = nuovi_box_val
                                     salva_file_json(
-                                        DB_TURNI_LPU, tutti_lpu_file
+                                        DB_TURNI_LPU, st.session_state.turni_lpu
                                     )
 
                                     nome_lpu_riferimento = tl.get("lpu")
@@ -1303,10 +1293,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                             DB_LPU, st.session_state.lpu_data
                                         )
 
-                                    turni_gen_file = carica_file_json(
-                                        DB_TURNI, []
-                                    )
-                                    for item in turni_gen_file:
+                                    for item in st.session_state.turni:
                                         if item["id"] == f"lpu_{tl['id']}":
                                             item["box_fatti"] = nuovi_box_val
                                             item["note"] = (
@@ -1314,7 +1301,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                                 f" {nuove_note_val}"
                                             )
                                     salva_file_json(
-                                        DB_TURNI, turni_gen_file
+                                        DB_TURNI, st.session_state.turni
                                     )
 
                                     st.session_state[
