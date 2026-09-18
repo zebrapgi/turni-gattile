@@ -6,7 +6,7 @@ import pytz
 import streamlit as st
 
 st.set_page_config(
-    page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
+    page_title="Gestione Turni Gattile", page_icon="", layout="wide"
 )
 
 # Tag aggiornati con versione forzata (?v=12) per aggirare la cache testarda di iOS
@@ -43,12 +43,17 @@ def salva_file_json(filename, data):
         pass
 
 
-# Inizializzazione stato box e lpu di default
+# Inizializzazione stato box con la nuova suddivisione ufficiale
 BOX_DEFAULT = {
-    "Box 1 (Ingresso)": ["Milo", "Nina"],
-    "Box 2 (Cuccioli)": ["Romeo", "Pallina"],
-    "Box 3 (Sala Comune)": ["Simba", "Luna"],
-    "Reparto Degenza": ["Arturo", "Mimì"],
+    "Box verde": [],
+    "Box arancione": [],
+    "Box rosso": [],
+    "Box blu": [],
+    "Box giallo": [],
+    "Nursery": [],
+    "Infermieria": [],
+    "Box Castioni": [],
+    "Esterni (oasi felina)": [],
 }
 
 LPU_DEFAULT = {}
@@ -85,12 +90,12 @@ with st.sidebar:
     if os.path.exists("icona.jpg"):
         st.image("icona.jpg", width=80)
 
-    st.title("🐱 Menu Rapido")
+    st.title(" Menu Rapido")
 
     st.markdown("---")
 
     # Sezione "I miei turni" nella sidebar
-    with st.expander("🔍 Cerca i miei turni", expanded=False):
+    with st.expander(" Cerca i miei turni", expanded=False):
         volontari_esistenti_side = carica_file_json(DB_TURNI, [])
         nomi_side = sorted(
             list(
@@ -123,9 +128,9 @@ with st.sidebar:
                 for tp in turni_pers_side:
                     box_str = ", ".join(tp.get("box_fatti", []))
                     st.markdown(
-                        f"• **{tp.get('settimana')}**<br>📅 {tp.get('giorno')}"
-                        f" ({tp.get('fascia')})<br>⏰"
-                        f" {tp.get('orario')}<br>📦 [{box_str}]",
+                        f"• **{tp.get('settimana')}**<br> {tp.get('giorno')}"
+                        f" ({tp.get('fascia')})<br>"
+                        f" {tp.get('orario')}<br> [{box_str}]",
                         unsafe_allow_html=True,
                     )
                     st.markdown("---")
@@ -133,7 +138,7 @@ with st.sidebar:
     st.markdown("---")
 
     # Sezione "Admin / Simulatore" nella sidebar
-    with st.expander("🔒 Area Admin", expanded=False):
+    with st.expander(" Area Admin", expanded=False):
         ADMIN_PASSWORD_CORRETTA = "gattile2026"
         if not st.session_state.is_admin:
             with st.form("form_login_admin_side"):
@@ -149,42 +154,42 @@ with st.sidebar:
                     else:
                         st.error("Errata.")
         else:
-            st.success("🔓 Admin attivo")
+            st.success(" Admin attivo")
             scelta_simulazione = st.selectbox(
                 "Simulazione:",
                 [
-                    "📅 Automatico",
-                    "⚠️ Simula Weekend",
-                    "🟢 Simula Feriale",
+                    " Automatico",
+                    " Simula Weekend",
+                    " Simula Feriale",
                 ],
                 key="selettore_simulazione_side",
             )
 
-            if scelta_simulazione == "⚠️ Simula Weekend":
+            if scelta_simulazione == " Simula Weekend":
                 is_weekend_o_venerdi_sera = True
-            elif scelta_simulazione == "🟢 Simula Feriale":
+            elif scelta_simulazione == " Simula Feriale":
                 is_weekend_o_venerdi_sera = False
             else:
                 is_weekend_o_venerdi_sera = is_weekend_reale
 
-            if st.button("🔒 Esci Admin", key="esci_admin_side"):
+            if st.button(" Esci Admin", key="esci_admin_side"):
                 st.session_state.is_admin = False
                 st.rerun()
 
 # --- INTESTAZIONE PRINCIPALE ---
-st.title("🐱 Turni Gattile")
+st.title(" Turni Gattile")
 
 # --- MENU PRINCIPALE IN ALTO ---
 opzioni_base = [
-    "📅 Inserisci",
-    "👀 Panoramica",
-    "📦 Box & Gatti",
-    "📊 Statistiche",
-    "📚 Archivio",
+    " Inserisci",
+    " Panoramica",
+    " Box & Gatti",
+    " Statistiche",
+    " Archivio",
 ]
 
 if st.session_state.is_admin:
-    opzioni_menu = opzioni_base + ["🛠️ Gestione LPU (Admin)"]
+    opzioni_menu = opzioni_base + [" Gestione LPU (Admin)"]
 else:
     opzioni_menu = opzioni_base
 
@@ -211,7 +216,7 @@ label_corr, label_pros = get_intervalli_settimane()
 
 if is_weekend_o_venerdi_sera:
     st.warning(
-        "⚠️ **Promemoria Gattile:** È iniziato il fine settimana! Ricordati di"
+        " **Promemoria Gattile:** È iniziato il fine settimana! Ricordati di"
         " toccare la **'Prossima Settimana'** qui sotto per inserire i tuoi"
         " turni per la settimana che sta per arrivare."
     )
@@ -230,7 +235,7 @@ def get_lista_volontari():
 def get_box_frequenti_volontario(nome_volontario):
     if (
         not nome_volontario
-        or nome_volontario == "➕ Altro / Nuovo volontario"
+        or nome_volontario == " Altro / Nuovo volontario"
         or nome_volontario == "-- Seleziona il tuo nome --"
     ):
         return []
@@ -253,7 +258,7 @@ def get_box_frequenti_volontario(nome_volontario):
     return [b[0] for b in box_ordinati if b[1] >= 1]
 
 
-if menu == "📅 Inserisci":
+if menu == " Inserisci":
     st.header("Gestione Turni")
 
     if is_weekend_o_venerdi_sera:
@@ -270,11 +275,11 @@ if menu == "📅 Inserisci":
     volontari_registrati = get_lista_volontari()
 
     # --- SEZIONE NOME FUORI DAL FORM PER ESSERE LIBERA E REATTIVA ---
-    st.markdown("### 👤 1. Il tuo Nome")
+    st.markdown("###  1. Il tuo Nome")
     scelte_volontario = (
         ["-- Seleziona il tuo nome --"]
         + volontari_registrati
-        + ["➕ Altro / Nuovo volontario"]
+        + [" Altro / Nuovo volontario"]
     )
 
     scelta_volontario_dropdown = st.selectbox(
@@ -284,7 +289,7 @@ if menu == "📅 Inserisci":
     )
 
     volontario_finale = ""
-    if scelta_volontario_dropdown == "➕ Altro / Nuovo volontario":
+    if scelta_volontario_dropdown == " Altro / Nuovo volontario":
         volontario_nuovo_input = st.text_input(
             "Scrivi qui il tuo Nome e Cognome:",
             key="input_nuovo_volontario_libero",
@@ -297,7 +302,7 @@ if menu == "📅 Inserisci":
 
     # --- FORM PER IL RESTO DEL TURNO ---
     with st.form("form_turno"):
-        st.markdown("### 🕒 2. Dettagli Turno e Box")
+        st.markdown("###  2. Dettagli Turno e Box")
         col1, col2 = st.columns(2)
 
         with col1:
@@ -354,35 +359,35 @@ if menu == "📅 Inserisci":
 
         col_box_op1, col_box_op2 = st.columns([1, 1])
         with col_box_op1:
-            seleziona_tutti_box = st.checkbox("📦 Seleziona TUTTI i Box")
+            seleziona_tutti_box = st.checkbox(" Seleziona TUTTI i Box")
         with col_box_op2:
             if box_suggeriti:
                 st.caption(
-                    f"💡 Suggerimento abitudini: {', '.join(box_suggeriti)}"
+                    f" Suggerimento abitudini: {', '.join(box_suggeriti)}"
                 )
 
         if seleziona_tutti_box:
             box_fatti = st.multiselect(
-                "✅ Box / Zone di cui ti occupi (obbligatorio selezionarne"
+                " Box / Zone di cui ti occupi (obbligatorio selezionarne"
                 " almeno uno):",
                 lista_nomi_box,
                 default=lista_nomi_box,
             )
         elif box_suggeriti:
             box_fatti = st.multiselect(
-                "✅ Box / Zone di cui ti occupi (obbligatorio selezionarne"
+                " Box / Zone di cui ti occupi (obbligatorio selezionarne"
                 " almeno uno):",
                 lista_nomi_box,
                 default=box_suggeriti,
             )
         else:
             box_fatti = st.multiselect(
-                "✅ Box / Zone di cui ti occupi (obbligatorio selezionarne"
+                " Box / Zone di cui ti occupi (obbligatorio selezionarne"
                 " almeno uno):",
                 lista_nomi_box,
             )
 
-        submit_button = st.form_submit_button(label="Registra Turno 🚀")
+        submit_button = st.form_submit_button(label="Registra Turno ")
 
         if submit_button:
             ora_limite_divisione = time(14, 0)
@@ -390,13 +395,13 @@ if menu == "📅 Inserisci":
 
             if fascia == "Mattina" and ora_inizio >= ora_limite_divisione:
                 st.error(
-                    "❌ **Errore:** Hai scelto la fascia **Mattina**, ma"
+                    " **Errore:** Hai scelto la fascia **Mattina**, ma"
                     " l'orario di inizio è pomeridiano (dalle 14:00 in poi)."
                 )
                 errore_fascia = True
             elif fascia == "Pomeriggio" and ora_inizio < ora_limite_divisione:
                 st.error(
-                    "❌ **Errore:** Hai scelto la fascia **Pomeriggio**, ma"
+                    " **Errore:** Hai scelto la fascia **Pomeriggio**, ma"
                     " l'orario di inizio è mattutino (prima delle 14:00)."
                 )
                 errore_fascia = True
@@ -404,13 +409,13 @@ if menu == "📅 Inserisci":
             if not errore_fascia:
                 if not volontario_finale:
                     st.warning(
-                        "⚠️ Per favore, seleziona il tuo nome dal menu a"
+                        " Per favore, seleziona il tuo nome dal menu a"
                         " tendina o scrivi il tuo nome e cognome nell'apposita"
                         " casella in alto prima di registrare."
                     )
                 elif not box_fatti:
                     st.error(
-                        "❌ **Errore:** Devi selezionare almeno un box o zona"
+                        " **Errore:** Devi selezionare almeno un box o zona"
                         " per poter registrare il turno!"
                     )
                 else:
@@ -428,7 +433,7 @@ if menu == "📅 Inserisci":
 
                     if doppione_trovato:
                         st.error(
-                            f"⚠️ **Attenzione:** {volontario_finale} risulta"
+                            f" **Attenzione:** {volontario_finale} risulta"
                             f" già registrato per {giorno} ({fascia}) in questa"
                             " settimana!"
                         )
@@ -450,7 +455,7 @@ if menu == "📅 Inserisci":
                             f" {volontario_finale}!"
                         )
 
-elif menu == "👀 Panoramica":
+elif menu == " Panoramica":
     st.header("Gestione Turni e Copertura Box")
 
     turni_attuali = carica_file_json(DB_TURNI, [])
@@ -487,14 +492,14 @@ elif menu == "👀 Panoramica":
         lista_tutti_box = list(st.session_state.struttura_box.keys())
 
         for giorno in giorni_settimana:
-            st.markdown(f"## 📌 {giorno}")
+            st.markdown(f"##  {giorno}")
             turni_giorno = [t for t in turni_filtrati if t["giorno"] == giorno]
 
             col_m, col_p = st.columns(2)
 
             def mostra_fascia_calendario(fascia_nome, col_container):
                 with col_container:
-                    st.markdown(f"### ☀️ {fascia_nome}")
+                    st.markdown(f"###  {fascia_nome}")
                     turni_fascia = [
                         t for t in turni_giorno if t["fascia"] == fascia_nome
                     ]
@@ -506,7 +511,7 @@ elif menu == "👀 Panoramica":
                             gatti_nel_box = ", ".join(
                                 st.session_state.struttura_box.get(b, [])
                             )
-                            st.error(f"❌ **{b}** (🐱 {gatti_nel_box})")
+                            st.error(f" **{b}** ( {gatti_nel_box})")
                         return
 
                     st.markdown("**Volontari presenti:**")
@@ -517,7 +522,7 @@ elif menu == "👀 Panoramica":
                             else "Nessuno"
                         )
                         st.write(
-                            f"• **{t['volontario']}** ({t['orario']}) 📦"
+                            f"• **{t['volontario']}** ({t['orario']}) "
                             f" [{box_str}]"
                         )
                         if t["note"]:
@@ -528,7 +533,7 @@ elif menu == "👀 Panoramica":
                             col_mod, col_del = st.columns(2)
                             with col_mod:
                                 if st.button(
-                                    f"✏️ Modifica ({t['volontario']})",
+                                    f" Modifica ({t['volontario']})",
                                     key=f"mod_btn_{giorno}_{fascia_nome}_{t['id']}",
                                 ):
                                     st.session_state[f"editing_{t['id']}"] = (
@@ -539,7 +544,7 @@ elif menu == "👀 Panoramica":
                                     st.rerun()
                             with col_del:
                                 if st.button(
-                                    f"🗑️ Elimina ({t['volontario']})",
+                                    f" Elimina ({t['volontario']})",
                                     key=f"del_{giorno}_{fascia_nome}_{t['id']}",
                                 ):
                                     lista_aggiornata = [
@@ -599,7 +604,7 @@ elif menu == "👀 Panoramica":
                                         key=f"box_mod_{t['id']}",
                                     )
                                     btn_salva_mod = st.form_submit_button(
-                                        "Salva Modifiche ✅"
+                                        "Salva Modifiche "
                                     )
                                     if btn_salva_mod:
                                         if not nuovi_box:
@@ -647,7 +652,7 @@ elif menu == "👀 Panoramica":
                             gatti_nel_box = ", ".join(
                                 st.session_state.struttura_box.get(b, [])
                             )
-                            st.error(f"❌ **{b}** (🐱 {gatti_nel_box})")
+                            st.error(f" **{b}** ( {gatti_nel_box})")
                     else:
                         st.success("Tutti i box sono coperti!")
 
@@ -658,14 +663,14 @@ elif menu == "👀 Panoramica":
 
             st.markdown("---")
 
-elif menu == "📦 Box & Gatti":
+elif menu == " Box & Gatti":
     st.header("Anagrafica Box e Gatti Residenti")
 
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
 
     if not st.session_state.is_admin:
         st.warning(
-            "🔒 Questa sezione è protetta. Apri l'area 'Admin' nella barra"
+            " Questa sezione è protetta. Apri l'area 'Admin' nella barra"
             " laterale a sinistra per inserire la password per aggiungere o"
             " modificare i box."
         )
@@ -677,7 +682,7 @@ elif menu == "📦 Box & Gatti":
                 else "Nessun gatto registrato in questo box"
             )
             st.markdown(
-                f"📦 **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱 *Gatti"
+                f" **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp; *Gatti"
                 f" presenti:* {gatti_str}",
                 unsafe_allow_html=True,
             )
@@ -691,11 +696,11 @@ elif menu == "📦 Box & Gatti":
 
         with st.form("form_aggiungi_box"):
             st.subheader("Crea un nuovo Box / Zona")
-            nuovo_nome_box = st.text_input("Nome del Box (es. Box Infermeria):")
+            nuovo_nome_box = st.text_input("Nome del Box (es. Box Extra):")
             nuovi_gatti_box = st.text_input(
                 "Gatti presenti separati da virgola (es. Briciola, Oscar):"
             )
-            btn_crea_box = st.form_submit_button("Aggiungi Box 📦")
+            btn_crea_box = st.form_submit_button("Aggiungi Box ")
 
             if btn_crea_box:
                 if not nuovo_nome_box.strip():
@@ -730,7 +735,7 @@ elif menu == "📦 Box & Gatti":
                     ", ".join(lista_gatti) if lista_gatti else "Nessun gatto"
                 )
                 st.markdown(
-                    f"📦 **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱"
+                    f" **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;"
                     f" *Gatti:* {gatti_str}",
                     unsafe_allow_html=True,
                 )
@@ -767,8 +772,8 @@ elif menu == "📦 Box & Gatti":
                         st.rerun()
             st.markdown("---")
 
-elif menu == "📊 Statistiche":
-    st.header("📊 Statistiche Presenze Box")
+elif menu == " Statistiche":
+    st.header(" Statistiche Presenze Box")
 
     tutti_i_turni = carica_file_json(DB_TURNI, [])
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
@@ -822,7 +827,7 @@ elif menu == "📊 Statistiche":
         st.info("Nessun box registrato nel sistema.")
     else:
         st.markdown("---")
-        st.subheader("🎯 Riepilogo Attività per Box")
+        st.subheader(" Riepilogo Attività per Box")
         cols = st.columns(3)
 
         lista_box_ordinata = sorted(
@@ -832,13 +837,13 @@ elif menu == "📊 Statistiche":
         for idx, (box, conteggio) in enumerate(lista_box_ordinata):
             col_corrente = cols[idx % 3]
             with col_corrente:
-                st.metric(label=f"📦 {box}", value=f"{conteggio} turni")
+                st.metric(label=f" {box}", value=f"{conteggio} turni")
 
         st.markdown("---")
         col_grafico, col_tabella = st.columns([1.5, 1])
 
         with col_grafico:
-            st.subheader("📈 Grafico a Barre")
+            st.subheader(" Grafico a Barre")
             if sum(presenze_per_box.values()) == 0:
                 st.info(
                     "Nessuna attività registrata per i box in questa"
@@ -852,7 +857,7 @@ elif menu == "📊 Statistiche":
                 st.bar_chart(df_stat)
 
         with col_tabella:
-            st.subheader("📋 Tabella Dati")
+            st.subheader(" Tabella Dati")
             df_tabella = (
                 pd.DataFrame(
                     list(presenze_per_box.items()), columns=["Box", "Turni"]
@@ -862,8 +867,8 @@ elif menu == "📊 Statistiche":
             )
             st.dataframe(df_tabella, use_container_width=True)
 
-elif menu == "📚 Archivio":
-    st.header("📚 Archivio Storico delle Settimane Passate")
+elif menu == " Archivio":
+    st.header(" Archivio Storico delle Settimane Passate")
 
     tutti_i_turni = carica_file_json(DB_TURNI, [])
     tutte_le_settimane = sorted(
@@ -899,13 +904,13 @@ elif menu == "📚 Archivio":
         ]
 
         for giorno in giorni_settimana:
-            st.markdown(f"## 📌 {giorno}")
+            st.markdown(f"##  {giorno}")
             turni_giorno = [t for t in turni_storico if t["giorno"] == giorno]
             col_m, col_p = st.columns(2)
 
             def mostra_fascia_storica(fascia_nome, col_container):
                 with col_container:
-                    st.markdown(f"### ☀️ {fascia_nome}")
+                    st.markdown(f"###  {fascia_nome}")
                     turni_fascia = [
                         t for t in turni_giorno if t["fascia"] == fascia_nome
                     ]
@@ -924,7 +929,7 @@ elif menu == "📚 Archivio":
                             else "Nessuno"
                         )
                         st.write(
-                            f"• **{t['volontario']}** ({t['orario']}) 📦"
+                            f"• **{t['volontario']}** ({t['orario']}) "
                             f" [{box_str}]"
                         )
                         if t["note"]:
@@ -937,8 +942,8 @@ elif menu == "📚 Archivio":
 
             st.markdown("---")
 
-elif menu == "🛠️ Gestione LPU (Admin)":
-    st.header("🛠️ Gestione Lavori Socialmente Utili (LPU)")
+elif menu == " Gestione LPU (Admin)":
+    st.header(" Gestione Lavori Socialmente Utili (LPU)")
 
     if not st.session_state.is_admin:
         st.error("Area riservata esclusivamente agli amministratori.")
@@ -950,14 +955,14 @@ elif menu == "🛠️ Gestione LPU (Admin)":
 
         tab_lpu_anagrafica, tab_lpu_inserisci, tab_lpu_storico = st.tabs(
             [
-                "📋 Monte Ore & Ore Mancanti",
-                "➕ Assegna Turno LPU",
-                "📚 Storico & Modifica Turni LPU",
+                " Monte Ore & Ore Mancanti",
+                " Assegna Turno LPU",
+                " Storico & Modifica Turni LPU",
             ]
         )
 
         with tab_lpu_anagrafica:
-            st.subheader("➕ Aggiungi o Configura un LPU")
+            st.subheader(" Aggiungi o Configura un LPU")
             with st.form("form_aggiungi_lpu"):
                 nome_lpu = st.text_input("Nome e Cognome LPU:")
                 ore_totali_obbligatorie = st.number_input(
@@ -967,7 +972,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                     step=1.0,
                 )
 
-                btn_salva_lpu = st.form_submit_button("Crea / Salva LPU 📝")
+                btn_salva_lpu = st.form_submit_button("Crea / Salva LPU ")
                 if btn_salva_lpu:
                     if not nome_lpu.strip():
                         st.error("Inserisci un nome valido.")
@@ -987,7 +992,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                         st.rerun()
 
             st.markdown("---")
-            st.subheader("📋 Monitoraggio Ore LPU (Fatte e Mancanti)")
+            st.subheader(" Monitoraggio Ore LPU (Fatte e Mancanti)")
 
             lpu_dict = st.session_state.lpu_data
             if not lpu_dict:
@@ -1011,7 +1016,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                 df_lpu = pd.DataFrame(dati_tabella_lpu)
                 st.dataframe(df_lpu, use_container_width=True)
 
-                st.markdown("### 🗑️ Gestione LPU")
+                st.markdown("###  Gestione LPU")
                 for nome in list(lpu_dict.keys()):
                     col_del_lpu, col_btn_lpu = st.columns([3, 1])
                     with col_del_lpu:
@@ -1021,14 +1026,14 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             f" {lpu_dict[nome]['ore_totali']}h)"
                         )
                     with col_btn_lpu:
-                        if st.button("Elimina 🗑️", key=f"btn_del_lpu_{nome}"):
+                        if st.button("Elimina ", key=f"btn_del_lpu_{nome}"):
                             del lpu_dict[nome]
                             salva_file_json(DB_LPU, lpu_dict)
                             st.success("LPU rimosso.")
                             st.rerun()
 
         with tab_lpu_inserisci:
-            st.subheader("📅 Registra un Turno per LPU")
+            st.subheader(" Registra un Turno per LPU")
             lpu_nomi_disponibili = list(st.session_state.lpu_data.keys())
             st.session_state.struttura_box = carica_file_json(
                 DB_BOX, BOX_DEFAULT
@@ -1092,7 +1097,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                     nota_lpu = st.text_area("Note turno LPU:", key="note_lpu_in")
 
                     btn_registra_turno_lpu = st.form_submit_button(
-                        "Assegna Turno e Aggiorna Ore 🚀"
+                        "Assegna Turno e Aggiorna Ore "
                     )
                     if btn_registra_turno_lpu:
                         if not box_assegnati_lpu:
@@ -1141,7 +1146,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             st.rerun()
 
         with tab_lpu_storico:
-            st.subheader("📚 Storico, Modifica ed Eliminazione Turni LPU")
+            st.subheader(" Storico, Modifica ed Eliminazione Turni LPU")
             tutti_turni_lpu = carica_file_json(DB_TURNI_LPU, [])
 
             if not tutti_turni_lpu:
@@ -1150,10 +1155,10 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                 for tl in reversed(tutti_turni_lpu):
                     box_s = ", ".join(tl.get("box", []))
                     st.markdown(
-                        f"• **{tl.get('lpu')}** - {tl.get('settimana')} | 📅"
+                        f"• **{tl.get('lpu')}** - {tl.get('settimana')} | "
                         f" {tl.get('giorno')} ({tl.get('fascia')} -"
-                        f" {tl.get('orario')}) | ⏱️ **{tl.get('ore')} ore** |"
-                        f" 📦 [{box_s}]"
+                        f" {tl.get('orario')}) |  **{tl.get('ore')} ore** |"
+                        f"  [{box_s}]"
                     )
                     if tl.get("note"):
                         st.caption(f"Note: {tl.get('note')}")
@@ -1161,7 +1166,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                     col_m_lpu, col_d_lpu = st.columns(2)
                     with col_m_lpu:
                         if st.button(
-                            "✏️ Modifica Ore/Dettagli",
+                            " Modifica Ore/Dettagli",
                             key=f"edit_lpu_btn_{tl['id']}",
                         ):
                             st.session_state[f"editing_lpu_{tl['id']}"] = (
@@ -1172,7 +1177,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             st.rerun()
                     with col_d_lpu:
                         if st.button(
-                            "🗑️ Elimina Turno LPU", key=f"del_lpu_turno_{tl['id']}"
+                            " Elimina Turno LPU", key=f"del_lpu_turno_{tl['id']}"
                         ):
                             nome_lpu_riferimento = tl.get("lpu")
                             ore_da_stornare = tl.get("ore", 0.0)
@@ -1245,7 +1250,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                             )
 
                             btn_salva_mod_lpu = st.form_submit_button(
-                                "Salva Modifiche LPU ✅"
+                                "Salva Modifiche LPU "
                             )
                             if btn_salva_mod_lpu:
                                 if not nuovi_box_val:
