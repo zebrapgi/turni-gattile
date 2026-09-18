@@ -29,8 +29,10 @@ DB_TURNI_LPU = "turni_lpu.json"
 
 def carica_file_json(filename, default_val):
     try:
-        with open(filename, "r") as f:
-            return json.load(f)
+        if os.path.exists(filename):
+            with open(filename, "r") as f:
+                return json.load(f)
+        return default_val
     except Exception:
         return default_val
 
@@ -53,8 +55,12 @@ BOX_DEFAULT = {
 
 LPU_DEFAULT = {}
 
+# Sincronizzazione immediata e robusta con il file box_gattile.json
 if "struttura_box" not in st.session_state:
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
+    # Se il file non esiste o è vuoto, lo inizializziamo su disco
+    if not os.path.exists(DB_BOX):
+        salva_file_json(DB_BOX, st.session_state.struttura_box)
 
 if "lpu_data" not in st.session_state:
     st.session_state.lpu_data = carica_file_json(DB_LPU, LPU_DEFAULT)
@@ -238,13 +244,16 @@ def get_box_frequenti_volontario(nome_volontario):
     turni_esistenti = carica_file_json(DB_TURNI, [])
     conteggio_box = {}
 
+    # Ricarichiamo sempre i box aggiornati
+    struttura_box_corrente = carica_file_json(DB_BOX, BOX_DEFAULT)
+
     for t in turni_esistenti:
         if (
             t.get("volontario", "").strip().lower()
             == nome_volontario.strip().lower()
         ):
             for b in t.get("box_fatti", []):
-                if b in st.session_state.struttura_box:
+                if b in struttura_box_corrente:
                     conteggio_box[b] = conteggio_box.get(b, 0) + 1
 
     box_ordinati = sorted(
@@ -347,7 +356,7 @@ if menu == "📅 Inserisci":
 
             note = st.text_area("Note aggiuntive (opzionale):")
 
-        # Ricarica sempre i box aggiornati dal file json
+        # Ricarica sempre i box aggiornati dal file json per l'inserimento
         st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
         lista_nomi_box = list(st.session_state.struttura_box.keys())
         box_suggeriti = get_box_frequenti_volontario(volontario_finale)
@@ -661,6 +670,7 @@ elif menu == "👀 Panoramica":
 elif menu == "📦 Box & Gatti":
     st.header("Anagrafica Box e Gatti Residenti")
 
+    # Sincronizzazione in tempo reale con il file box_gattile.json
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
 
     if not st.session_state.is_admin:
@@ -685,8 +695,8 @@ elif menu == "📦 Box & Gatti":
     else:
         st.markdown(
             "Gestisci i box del gattile e vedi quali gatti ci sono dentro"
-            " (Modalità Admin attiva). I dati vengono salvati nel file"
-            " `box_gattile.json`."
+            " (Modalità Admin attiva). Le modifiche vengono salvate"
+            " direttamente nel file **`box_gattile.json`**."
         )
 
         with st.form("form_aggiungi_box"):
@@ -713,8 +723,8 @@ elif menu == "📦 Box & Gatti":
                     ] = gatti_list
                     salva_file_json(DB_BOX, st.session_state.struttura_box)
                     st.success(
-                        f"Box '{nuovo_nome_box}' aggiunto e salvato con"
-                        " successo!"
+                        f"Box '{nuovo_nome_box}' aggiunto e salvato in"
+                        " `box_gattile.json` con successo!"
                     )
                     st.rerun()
 
@@ -738,7 +748,7 @@ elif menu == "📦 Box & Gatti":
                 if st.button("Elimina Box", key=f"del_box_{nome_box}"):
                     del st.session_state.struttura_box[nome_box]
                     salva_file_json(DB_BOX, st.session_state.struttura_box)
-                    st.success("Box eliminato!")
+                    st.success("Box eliminato e file aggiornato!")
                     st.rerun()
 
             with st.expander(f"Modifica gatti in {nome_box}"):
@@ -761,8 +771,7 @@ elif menu == "📦 Box & Gatti":
                         st.session_state.struttura_box[nome_box] = nuova_lista
                         salva_file_json(DB_BOX, st.session_state.struttura_box)
                         st.success(
-                            "Lista gatti aggiornata e salvata nel database"
-                            " JSON!"
+                            "Lista gatti aggiornata e salvata nel file JSON!"
                         )
                         st.rerun()
             st.markdown("---")
