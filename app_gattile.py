@@ -23,6 +23,7 @@ st.markdown(
 DB_TURNI = "turni_gattile.json"
 DB_BOX = "box_gattile.json"
 DB_LPU = "lpu_gattile.json"
+DB_TURNI_LPU = "turni_lpu.json"
 
 
 def carica_file_json(filename, default_val):
@@ -41,7 +42,7 @@ def salva_file_json(filename, data):
         pass
 
 
-# Inizializzazione stato box e gatti
+# Inizializzazione stato box e lpu
 BOX_DEFAULT = {
     "Box 1 (Ingresso)": ["Milo", "Nina"],
     "Box 2 (Cuccioli)": ["Romeo", "Pallina"],
@@ -50,7 +51,7 @@ BOX_DEFAULT = {
 }
 
 LPU_DEFAULT = {
-    # Esempio struttura: "Nome Cognome": {"ore_totali": 50.0, "ore_fatte": 12.0}
+    # Esempio: "Nome Cognome": {"ore_totali": 50.0, "ore_fatte": 0.0}
 }
 
 if "struttura_box" not in st.session_state:
@@ -59,38 +60,14 @@ if "struttura_box" not in st.session_state:
 if "lpu_data" not in st.session_state:
     st.session_state.lpu_data = carica_file_json(DB_LPU, LPU_DEFAULT)
 
+if "turni_lpu" not in st.session_state:
+    st.session_state.turni_lpu = carica_file_json(DB_TURNI_LPU, [])
+
 if "turni" not in st.session_state:
     st.session_state.turni = carica_file_json(DB_TURNI, [])
 
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
-
-if "app_avviata" not in st.session_state:
-    st.session_state.app_avviata = False
-
-# --- SCHERMATA INIZIALE DI ACCESSO (HOME PAGE GITHUB) ---
-if not st.session_state.app_avviata:
-    col_centrale_1, col_centrale_2, col_centrale_3 = st.columns([1, 2, 1])
-    with col_centrale_2:
-        if os.path.exists("icona.jpg"):
-            st.image("icona.jpg", width=120)
-        st.title("🐱 Gestione Turni Gattile")
-        st.markdown(
-            "Benvenuto nell'applicazione ufficiale per la gestione dei turni, dei box e del personale LPU del gattile. "
-            "Organizza le presenze, monitora la copertura delle zone e consulta l'archivio in modo semplice e veloce."
-        )
-        st.markdown("---")
-        
-        if st.button("🚀 Accedi all'Applicazione", use_container_width=True):
-            st.session_state.app_avviata = True
-            st.rerun()
-
-        st.markdown("---")
-        st.markdown(
-            "🔗 Codice sorgente e repository ufficiale: "
-            "[GitHub - turni-gattile](https://github.com/lallag/turni-gattile)"
-        )
-    st.stop()
 
 adesso = datetime.now()
 giorno_settimana = adesso.weekday()
@@ -107,12 +84,6 @@ with st.sidebar:
         st.image("icona.jpg", width=80)
     
     st.title("🐱 Menu Rapido")
-    
-    if st.button("🏠 Torna alla Home"):
-        st.session_state.app_avviata = False
-        st.rerun()
-
-    st.markdown("---")
     
     # Sezione "I miei turni" nella sidebar
     with st.expander("🔍 Cerca i miei turni", expanded=False):
@@ -175,7 +146,7 @@ with st.sidebar:
 # --- INTESTAZIONE PRINCIPALE ---
 st.title("🐱 Turni Gattile")
 
-# --- MENU PRINCIPALE IN ALTO (Se admin, mostra anche il tab LPU) ---
+# --- MENU PRINCIPALE IN ALTO (Aggiunge il tab LPU se admin è attivo) ---
 opzioni_base = [
     "📅 Inserisci",
     "👀 Panoramica",
@@ -520,7 +491,7 @@ elif menu == "👀 Panoramica":
                                                 if item["id"] == t["id"]:
                                                     item["orario"] = nuovo_orario
                                                     item["note"] = nuove_note
-                                                    item["box_fatti"] = novos_box if 'novos_box' in locals() else nuovi_box
+                                                    item["box_fatti"] = nuovi_box
                                             salva_file_json(DB_TURNI, lista_completa)
                                             st.session_state[f"editing_{t['id']}"] = False
                                             st.success("Turno modificato con successo!")
@@ -766,65 +737,145 @@ elif menu == "🛠️ Gestione LPU (Admin)":
     if not st.session_state.is_admin:
         st.error("Area riservata esclusivamente agli amministratori.")
     else:
-        st.markdown("Gestisci il personale LPU, imposta il monte ore totale obbligatorio e monitora le ore mancanti.")
+        st.markdown("Gestisci il personale LPU, inserisci i loro turni con relative ore e monitora il monte ore totale e mancante.")
         
-        st.subheader("➕ Aggiungi o Modifica un LPU")
-        with st.form("form_aggiungi_lpu"):
-            nome_lpu = st.text_input("Nome e Cognome LPU:")
-            ore_totali_obbligatorie = st.number_input("Monte ore totale richiesto:", min_value=1.0, value=50.0, step=1.0)
-            ore_gia_fatte = st.number_input("Ore già svolte (aggiornabili):", min_value=0.0, value=0.0, step=0.5)
-            
-            btn_salva_lpu = st.form_submit_button("Salva / Registra LPU 📝")
-            if btn_salva_lpu:
-                if not nome_lpu.strip():
-                    st.error("Inserisci un nome valido.")
-                else:
-                    st.session_state.lpu_data[nome_lpu.strip()] = {
-                        "ore_totali": float(ore_totali_obbligatorie),
-                        "ore_fatte": float(ore_gia_fatte)
-                    }
-                    salva_file_json(DB_LPU, st.session_state.lpu_data)
-                    st.success(f"LPU '{nome_lpu}' salvato con successo!")
-                    st.rerun()
+        # --- TAB O SEZIONI INTERNE PER LPU ---
+        tab_lpu_anagrafica, tab_lpu_inserisci, tab_lpu_storico = st.tabs(["📋 Monte Ore & Ore Mancanti", "➕ Assegna Turno LPU", "📚 Storico Turni LPU"])
 
-        st.markdown("---")
-        st.subheader("📋 Monitoraggio Ore LPU (Totali, Fatte e Mancanti)")
-
-        lpu_dict = st.session_state.lpu_data
-        if not lpu_dict:
-            st.info("Nessun LPU registrato nel sistema.")
-        else:
-            dati_tabella_lpu = []
-            for nome, info in lpu_dict.items():
-                tot = info.get("ore_totali", 0.0)
-                fatte = info.get("ore_fatte", 0.0)
-                mancanti = max(0.0, tot - fatte)
+        with tab_lpu_anagrafica:
+            st.subheader("➕ Aggiungi o Configura un LPU")
+            with st.form("form_aggiungi_lpu"):
+                nome_lpu = st.text_input("Nome e Cognome LPU:")
+                ore_totali_obbligatorie = st.number_input("Monte ore totale richiesto:", min_value=1.0, value=50.0, step=1.0)
                 
-                dati_tabella_lpu.append({
-                    "Nome LPU": nome,
-                    "Ore Totali": tot,
-                    "Ore Fatte": fatte,
-                    "Ore Mancanti": mancanti
-                })
+                btn_salva_lpu = st.form_submit_button("Crea / Salva LPU 📝")
+                if btn_salva_lpu:
+                    if not nome_lpu.strip():
+                        st.error("Inserisci un nome valido.")
+                    else:
+                        if nome_lpu.strip() not in st.session_state.lpu_data:
+                            st.session_state.lpu_data[nome_lpu.strip()] = {
+                                "ore_totali": float(ore_totali_obbligatorie),
+                                "ore_fatte": 0.0
+                            }
+                        else:
+                            st.session_state.lpu_data[nome_lpu.strip()]["ore_totali"] = float(ore_totali_obbligatorie)
+                        
+                        salva_file_json(DB_LPU, st.session_state.lpu_data)
+                        st.success(f"LPU '{nome_lpu}' salvato con successo!")
+                        st.rerun()
 
-            df_lpu = pd.DataFrame(dati_tabella_lpu)
-            st.dataframe(df_lpu, use_container_width=True)
+            st.markdown("---")
+            st.subheader("📋 Monitoraggio Ore LPU (Fatte e Mancanti)")
 
-            st.markdown("### ✏️ Aggiorna Rapido Ore Fatte o Elimina LPU")
-            for nome in list(lpu_dict.keys()):
-                with st.expander(f"Gestisci: {nome}"):
-                    col_u1, col_u2, col_u3 = st.columns(3)
-                    with col_u1:
-                        nuove_fatte = st.number_input(f"Aggiorna ore fatte per {nome}:", min_value=0.0, value=float(lpu_dict[nome]["ore_fatte"]), step=0.5, key=f"ore_fatte_{nome}")
-                    with col_u2:
-                        if st.button("Aggiorna Ore ✅", key=f"btn_up_{nome}"):
-                            lpu_dict[nome]["ore_fatte"] = float(nuove_fatte)
-                            salva_file_json(DB_LPU, lpu_dict)
-                            st.success("Aggiornato!")
-                            st.rerun()
-                    with col_u3:
-                        if st.button("Elimina LPU 🗑️", key=f"btn_del_lpu_{nome}"):
+            lpu_dict = st.session_state.lpu_data
+            if not lpu_dict:
+                st.info("Nessun LPU registrato nel sistema.")
+            else:
+                dati_tabella_lpu = []
+                for nome, info in lpu_dict.items():
+                    tot = info.get("ore_totali", 0.0)
+                    fatte = info.get("ore_fatte", 0.0)
+                    mancanti = max(0.0, tot - fatte)
+                    
+                    dati_tabella_lpu.append({
+                        "Nome LPU": nome,
+                        "Ore Totali": tot,
+                        "Ore Fatte": fatte,
+                        "Ore Mancanti": mancanti
+                    })
+
+                df_lpu = pd.DataFrame(dati_tabella_lpu)
+                st.dataframe(df_lpu, use_container_width=True)
+
+                st.markdown("### 🗑️ Gestione LPU")
+                for nome in list(lpu_dict.keys()):
+                    col_del_lpu, col_btn_lpu = st.columns([3, 1])
+                    with col_del_lpu:
+                        st.write(f"• **{nome}** (Fatte: {lpu_dict[nome]['ore_fatte']}h / Totali: {lpu_dict[nome]['ore_totali']}h)")
+                    with col_btn_lpu:
+                        if st.button("Elimina 🗑️", key=f"btn_del_lpu_{nome}"):
                             del lpu_dict[nome]
                             salva_file_json(DB_LPU, lpu_dict)
                             st.success("LPU rimosso.")
                             st.rerun()
+
+        with tab_lpu_inserisci:
+            st.subheader("📅 Registra un Turno per LPU")
+            lpu_nomi_disponibili = list(st.session_state.lpu_data.keys())
+            
+            if not lpu_nomi_disponibili:
+                st.warning("Prima devi registrare almeno un LPU nella scheda 'Monte Ore & Ore Mancanti'.")
+            else:
+                with st.form("form_turno_lpu"):
+                    lpu_scelto = st.selectbox("Seleziona LPU:", lpu_nomi_disponibili)
+                    settimana_lpu = st.selectbox("Settimana:", [label_corr, label_pros])
+                    giorno_lpu = st.selectbox("Giorno:", ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"], key="g_lpu")
+                    fascia_lpu = st.selectbox("Fascia:", ["Mattina", "Pomeriggio"], key="f_lpu")
+                    
+                    col_ol1, col_ol2 = st.columns(2)
+                    with col_ol1:
+                        ora_i_lpu = st.time_input("Ora Inizio:", value=time(8, 30), key="oi_lpu")
+                    with col_ol2:
+                        ora_f_lpu = st.time_input("Ora Fine:", value=time(12, 0), key="of_lpu")
+                    
+                    orario_lpu_str = f"{ora_i_lpu.strftime('%H:%M')} - {ora_f_lpu.strftime('%H:%M')}"
+                    ore_svolte_val = st.number_input("Quante ore di lavoro aggiungere al monte ore?", min_value=0.5, value=3.5, step=0.5)
+                    
+                    lista_box_lpu = list(st.session_state.struttura_box.keys())
+                    box_assegnati_lpu = st.multiselect("Box assegnati:", lista_box_lpu, key="box_lpu_sel")
+                    nota_lpu = st.text_area("Note turno LPU:", key="note_lpu_in")
+
+                    btn_registra_turno_lpu = st.form_submit_button("Assegna Turno e Aggiorna Ore 🚀")
+                    if btn_registra_turno_lpu:
+                        if not box_assegnati_lpu:
+                            st.error("Seleziona almeno un box.")
+                        else:
+                            nuovo_t_lpu = {
+                                "id": str(datetime.now().timestamp()),
+                                "lpu": lpu_scelto,
+                                "settimana": settimana_lpu,
+                                "giorno": giorno_lpu,
+                                "fascia": fascia_lpu,
+                                "orario": orario_lpu_str,
+                                "ore": float(ore_svolte_val),
+                                "box": box_assegnati_lpu,
+                                "note": nota_lpu
+                            }
+                            st.session_state.turni_lpu.append(nuovo_t_lpu)
+                            salva_file_json(DB_TURNI_LPU, st.session_state.turni_lpu)
+
+                            # Aggiorna ore fatte nel dizionario LPU
+                            st.session_state.lpu_data[lpu_scelto]["ore_fatte"] += float(ore_svolte_val)
+                            salva_file_json(DB_LPU, st.session_state.lpu_data)
+
+                            # Aggiunge il turno anche al database generale dei turni così compare nella panoramica generale del gattile
+                            turno_generale_equivalente = {
+                                "id": f"lpu_{nuovo_t_lpu['id']}",
+                                "settimana": settimana_lpu,
+                                "volontario": f"{lpu_scelto} (LPU)",
+                                "giorno": giorno_lpu,
+                                "fascia": fascia_lpu,
+                                "orario": orario_lpu_str,
+                                "box_fatti": box_assegnati_lpu,
+                                "note": f"[LPU - {ore_svolte_val}h] {nota_lpu}"
+                            }
+                             turni_gen = carica_file_json(DB_TURNI, [])
+                             turni_gen.append(turno_generale_equivalente)
+                             salva_file_json(DB_TURNI, turni_gen)
+
+                            st.success(f"Turno registrato per {lpu_scelto}! Aggiunte {ore_svolte_val} ore.")
+                            st.rerun()
+
+        with tab_lpu_storico:
+            st.subheader("📚 Storico Turni Svolti da LPU")
+            tutti_turni_lpu = carica_file_json(DB_TURNI_LPU, [])
+            if not tutti_turni_lpu:
+                st.info("Nessun turno LPU registrato.")
+            else:
+                for tl in reversed(tutti_turni_lpu):
+                    box_s = ", ".join(tl.get("box", []))
+                    st.markdown(f"• **{tl.get('lpu')}** - {tl.get('settimana')} | 📅 {tl.get('giorno')} ({tl.get('fascia')} - {tl.get('orario')}) | ⏱️ **{tl.get('ore')} ore** | 📦 [{box_s}]")
+                    if tl.get("note"):
+                        st.caption(f"Note: {tl.get('note')}")
+                    st.markdown("---")
