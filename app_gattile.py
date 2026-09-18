@@ -8,27 +8,6 @@ st.set_page_config(
     page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
 )
 
-# --- GESTIONE SCHERMATA DI BENVENUTO INIZIALE (PWA FRIENDLY) ---
-if "app_avviata" not in st.session_state:
-    st.session_state.app_avviata = False
-
-if not st.session_state.app_avviata:
-    st.markdown(
-        """
-        <div style="text-align: center; padding: 40px 20px;">
-            <h1>🐱 Gestione Turni Gattile</h1>
-            <p style="font-size: 1.1rem; color: #555;">Benvenuto nel sistema di gestione presenze, box e lavori socialmente utili del gattile.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    col_centro1, col_centro2, col_centro3 = st.columns([1, 2, 1])
-    with col_centro2:
-        if st.button("🚀 Entra nell'Applicazione", type="primary", use_container_width=True):
-            st.session_state.app_avviata = True
-            st.rerun()
-    st.stop()
-
 # Tag aggiornati con versione forzata (?v=12) per aggirare la cache testarda di iOS
 st.markdown(
     """
@@ -103,11 +82,6 @@ with st.sidebar:
         st.image("icona.jpg", width=80)
     
     st.title("🐱 Menu Rapido")
-
-    # Pulsante per tornare alla home di benvenuto se serve
-    if st.button("🏠 Torna alla Home", key="btn_home_ritorno"):
-        st.session_state.app_avviata = False
-        st.rerun()
 
     st.markdown("---")
     
@@ -926,7 +900,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                 salva_file_json(DB_LPU, st.session_state.lpu_data)
 
                             nuovo_storico_lpu = [item for item in carica_file_json(DB_TURNI_LPU, []) if item["id"] != tl["id"]]
-                            salva_file_json(DB_TURNI_LPU, nuovo_storico_lpu)
+                            salva_file_json(DB_TURNI_LPU, nuevo_storico_lpu)
 
                             turni_gen_aggiornato = [item for item in carica_file_json(DB_TURNI, []) if item["id"] != f"lpu_{tl['id']}"]
                             salva_file_json(DB_TURNI, turni_gen_aggiornato)
@@ -968,7 +942,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                     turni_gen_file = carica_file_json(DB_TURNI, [])
                                     for item in turni_gen_file:
                                         if item["id"] == f"lpu_{tl['id']}":
-                                            item["box_fatti"] = nuovi_box_val
+                                            item["box_fatti"] = novos_box_val if 'novos_box_val' in locals() else nuovi_box_val
                                             item["note"] = f"[LPU - {nuove_ore_val}h] {nuove_note_val}"
                                     salva_file_json(DB_TURNI, turni_gen_file)
 
