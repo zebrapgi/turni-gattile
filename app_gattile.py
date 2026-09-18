@@ -131,7 +131,7 @@ with st.sidebar:
                     st.markdown(
                         f"• **{tp.get('settimana')}**<br>📅 {tp.get('giorno')}"
                         f" ({tp.get('fascia')})<br>⏰"
-                        f" {tp.get('orario')}<br>📦 [{box_str}]",
+                        f" {tp.get('orario')}<br> [{box_str}]",
                         unsafe_allow_html=True,
                     )
                     st.markdown("---")
