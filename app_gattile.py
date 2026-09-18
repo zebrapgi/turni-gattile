@@ -22,6 +22,7 @@ st.markdown(
 # --- GESTIONE DATI PERSISTENTI TRAMITE GITHUB / JSON ---
 DB_TURNI = "turni_gattile.json"
 DB_BOX = "box_gattile.json"
+DB_LPU = "lpu_gattile.json"
 
 
 def carica_file_json(filename, default_val):
@@ -48,8 +49,15 @@ BOX_DEFAULT = {
     "Reparto Degenza": ["Arturo", "Mimì"]
 }
 
+LPU_DEFAULT = {
+    # Esempio struttura: "Nome Cognome": {"ore_totali": 50.0, "ore_fatte": 12.0}
+}
+
 if "struttura_box" not in st.session_state:
     st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
+
+if "lpu_data" not in st.session_state:
+    st.session_state.lpu_data = carica_file_json(DB_LPU, LPU_DEFAULT)
 
 if "turni" not in st.session_state:
     st.session_state.turni = carica_file_json(DB_TURNI, [])
@@ -68,7 +76,7 @@ if not st.session_state.app_avviata:
             st.image("icona.jpg", width=120)
         st.title("🐱 Gestione Turni Gattile")
         st.markdown(
-            "Benvenuto nell'applicazione ufficiale per la gestione dei turni e dei box del gattile. "
+            "Benvenuto nell'applicazione ufficiale per la gestione dei turni, dei box e del personale LPU del gattile. "
             "Organizza le presenze, monitora la copertura delle zone e consulta l'archivio in modo semplice e veloce."
         )
         st.markdown("---")
@@ -167,14 +175,20 @@ with st.sidebar:
 # --- INTESTAZIONE PRINCIPALE ---
 st.title("🐱 Turni Gattile")
 
-# --- MENU PRINCIPALE IN ALTO ---
-opzioni_menu = [
+# --- MENU PRINCIPALE IN ALTO (Se admin, mostra anche il tab LPU) ---
+opzioni_base = [
     "📅 Inserisci",
     "👀 Panoramica",
     "📦 Box & Gatti",
     "📊 Statistiche",
     "📚 Archivio",
 ]
+
+if st.session_state.is_admin:
+    opzioni_menu = opzioni_base + ["🛠️ Gestione LPU (Admin)"]
+else:
+    opzioni_menu = opzioni_base
+
 menu = st.pills("Seleziona sezione:", opzioni_menu, default=opzioni_menu[0])
 st.markdown("---")
 
@@ -506,7 +520,7 @@ elif menu == "👀 Panoramica":
                                                 if item["id"] == t["id"]:
                                                     item["orario"] = nuovo_orario
                                                     item["note"] = nuove_note
-                                                    item["box_fatti"] = nuovi_box
+                                                    item["box_fatti"] = novos_box if 'novos_box' in locals() else nuovi_box
                                             salva_file_json(DB_TURNI, lista_completa)
                                             st.session_state[f"editing_{t['id']}"] = False
                                             st.success("Turno modificato con successo!")
@@ -745,3 +759,72 @@ elif menu == "📚 Archivio":
                 mostra_fascia_storica("Pomeriggio", col_p)
 
             st.markdown("---")
+
+elif menu == "🛠️ Gestione LPU (Admin)":
+    st.header("🛠️ Gestione Lavori Socialmente Utili (LPU)")
+    
+    if not st.session_state.is_admin:
+        st.error("Area riservata esclusivamente agli amministratori.")
+    else:
+        st.markdown("Gestisci il personale LPU, imposta il monte ore totale obbligatorio e monitora le ore mancanti.")
+        
+        st.subheader("➕ Aggiungi o Modifica un LPU")
+        with st.form("form_aggiungi_lpu"):
+            nome_lpu = st.text_input("Nome e Cognome LPU:")
+            ore_totali_obbligatorie = st.number_input("Monte ore totale richiesto:", min_value=1.0, value=50.0, step=1.0)
+            ore_gia_fatte = st.number_input("Ore già svolte (aggiornabili):", min_value=0.0, value=0.0, step=0.5)
+            
+            btn_salva_lpu = st.form_submit_button("Salva / Registra LPU 📝")
+            if btn_salva_lpu:
+                if not nome_lpu.strip():
+                    st.error("Inserisci un nome valido.")
+                else:
+                    st.session_state.lpu_data[nome_lpu.strip()] = {
+                        "ore_totali": float(ore_totali_obbligatorie),
+                        "ore_fatte": float(ore_gia_fatte)
+                    }
+                    salva_file_json(DB_LPU, st.session_state.lpu_data)
+                    st.success(f"LPU '{nome_lpu}' salvato con successo!")
+                    st.rerun()
+
+        st.markdown("---")
+        st.subheader("📋 Monitoraggio Ore LPU (Totali, Fatte e Mancanti)")
+
+        lpu_dict = st.session_state.lpu_data
+        if not lpu_dict:
+            st.info("Nessun LPU registrato nel sistema.")
+        else:
+            dati_tabella_lpu = []
+            for nome, info in lpu_dict.items():
+                tot = info.get("ore_totali", 0.0)
+                fatte = info.get("ore_fatte", 0.0)
+                mancanti = max(0.0, tot - fatte)
+                
+                dati_tabella_lpu.append({
+                    "Nome LPU": nome,
+                    "Ore Totali": tot,
+                    "Ore Fatte": fatte,
+                    "Ore Mancanti": mancanti
+                })
+
+            df_lpu = pd.DataFrame(dati_tabella_lpu)
+            st.dataframe(df_lpu, use_container_width=True)
+
+            st.markdown("### ✏️ Aggiorna Rapido Ore Fatte o Elimina LPU")
+            for nome in list(lpu_dict.keys()):
+                with st.expander(f"Gestisci: {nome}"):
+                    col_u1, col_u2, col_u3 = st.columns(3)
+                    with col_u1:
+                        nuove_fatte = st.number_input(f"Aggiorna ore fatte per {nome}:", min_value=0.0, value=float(lpu_dict[nome]["ore_fatte"]), step=0.5, key=f"ore_fatte_{nome}")
+                    with col_u2:
+                        if st.button("Aggiorna Ore ✅", key=f"btn_up_{nome}"):
+                            lpu_dict[nome]["ore_fatte"] = float(nuove_fatte)
+                            salva_file_json(DB_LPU, lpu_dict)
+                            st.success("Aggiornato!")
+                            st.rerun()
+                    with col_u3:
+                        if st.button("Elimina LPU 🗑️", key=f"btn_del_lpu_{nome}"):
+                            del lpu_dict[nome]
+                            salva_file_json(DB_LPU, lpu_dict)
+                            st.success("LPU rimosso.")
+                            st.rerun()
