@@ -21,7 +21,7 @@ st.markdown(
 
 # --- GESTIONE DATI PERSISTENTI TRAMITE GITHUB / JSON ---
 DB_TURNI = "turni_gattile.json"
-DB_GATTI = "gatti.json"
+DB_BOX = "box_gattile.json"
 
 
 def carica_file_json(filename, default_val):
@@ -40,21 +40,16 @@ def salva_file_json(filename, data):
         pass
 
 
-# Inizializzazione stato
-if "gatti" not in st.session_state:
-    st.session_state.gatti = carica_file_json(
-        DB_GATTI,
-        [
-            "Milo",
-            "Nina",
-            "Romeo",
-            "Pallina",
-            "Simba",
-            "Luna",
-            "Arturo",
-            "Mimì",
-        ],
-    )
+# Inizializzazione stato box e gatti (Struttura a dizionario: "Nome Box": ["Gatto 1", "Gatto 2"])
+BOX_DEFAULT = {
+    "Box 1 (Ingresso)": ["Milo", "Nina"],
+    "Box 2 (Cuccioli)": ["Romeo", "Pallina"],
+    "Box 3 (Sala Comune)": ["Simba", "Luna"],
+    "Reparto Degenza": ["Arturo", "Mimì"]
+}
+
+if "struttura_box" not in st.session_state:
+    st.session_state.struttura_box = carica_file_json(DB_BOX, BOX_DEFAULT)
 
 if "turni" not in st.session_state:
     st.session_state.turni = carica_file_json(DB_TURNI, [])
@@ -93,8 +88,8 @@ with st.sidebar:
                 st.write("Nessun turno trovato.")
             else:
                 for tp in turni_pers_side:
-                    gatti_str = ", ".join(tp.get("gatti_fatti", []))
-                    st.markdown(f"• **{tp.get('settimana')}**<br>📅 {tp.get('giorno')} ({tp.get('fascia')})<br>⏰ {tp.get('orario')}<br>🐱 [{gatti_str}]", unsafe_allow_html=True)
+                    box_str = ", ".join(tp.get("box_fatti", []))
+                    st.markdown(f"• **{tp.get('settimana')}**<br>📅 {tp.get('giorno')} ({tp.get('fascia')})<br>⏰ {tp.get('orario')}<br>📦 [{box_str}]", unsafe_allow_html=True)
                     st.markdown("---")
 
     st.markdown("---")
@@ -143,7 +138,7 @@ st.title("🐱 Turni Gattile")
 opzioni_menu = [
     "📅 Inserisci",
     "👀 Panoramica",
-    "🐈 Gatti",
+    "📦 Box & Gatti",
     "📊 Statistiche",
     "📚 Archivio",
 ]
@@ -186,21 +181,21 @@ def get_lista_volontari():
     return sorted(list(nomi))
 
 
-def get_gatti_frequenti_volontario(nome_volontario):
+def get_box_frequenti_volontario(nome_volontario):
     if not nome_volontario or nome_volontario == "➕ Altro / Nuovo volontario" or nome_volontario == "-- Seleziona il tuo nome --":
         return []
     
     turni_esistenti = carica_file_json(DB_TURNI, [])
-    conteggio_gatti = {}
+    conteggio_box = {}
     
     for t in turni_esistenti:
         if t.get("volontario", "").strip().lower() == nome_volontario.strip().lower():
-            for g in t.get("gatti_fatti", []):
-                if g in st.session_state.gatti:
-                    conteggio_gatti[g] = conteggio_gatti.get(g, 0) + 1
+            for b in t.get("box_fatti", []):
+                if b in st.session_state.struttura_box:
+                    conteggio_box[b] = conteggio_box.get(b, 0) + 1
                     
-    gatti_ordinati = sorted(conteggio_gatti.items(), key=lambda x: x[1], reverse=True)
-    return [g[0] for g in gatti_ordinati if g[1] >= 1]
+    box_ordinati = sorted(conteggio_box.items(), key=lambda x: x[1], reverse=True)
+    return [b[0] for b in box_ordinati if b[1] >= 1]
 
 
 if menu == "📅 Inserisci":
@@ -236,7 +231,7 @@ if menu == "📅 Inserisci":
 
     # --- FORM PER IL RESTO DEL TURNO ---
     with st.form("form_turno"):
-        st.markdown("### 🕒 2. Dettagli Turno e Gatti")
+        st.markdown("### 🕒 2. Dettagli Turno e Box")
         col1, col2 = st.columns(2)
 
         with col1:
@@ -279,31 +274,32 @@ if menu == "📅 Inserisci":
 
             note = st.text_area("Note aggiuntive (opzionale):")
 
-        gatti_suggeriti = get_gatti_frequenti_volontario(volontario_finale)
+        lista_nomi_box = list(st.session_state.struttura_box.keys())
+        box_suggeriti = get_box_frequenti_volontario(volontario_finale)
 
-        col_gatti_op1, col_gatti_op2 = st.columns([1, 1])
-        with col_gatti_op1:
-            seleziona_tutti = st.checkbox("🐱 Seleziona TUTTI i gatti")
-        with col_gatti_op2:
-            if gatti_suggeriti:
-                st.caption(f"💡 Suggerimento abitudini: {', '.join(gatti_suggeriti)}")
+        col_box_op1, col_box_op2 = st.columns([1, 1])
+        with col_box_op1:
+            seleziona_tutti_box = st.checkbox("📦 Seleziona TUTTI i Box")
+        with col_box_op2:
+            if box_suggeriti:
+                st.caption(f"💡 Suggerimento abitudini: {', '.join(box_suggeriti)}")
 
-        if seleziona_tutti:
-            gatti_fatti = st.multiselect(
-                "✅ Gatti / Zone di cui ti occupi (obbligatorio selezionarne almeno uno):",
-                st.session_state.gatti,
-                default=st.session_state.gatti,
+        if seleziona_tutti_box:
+            box_fatti = st.multiselect(
+                "✅ Box / Zone di cui ti occupi (obbligatorio selezionarne almeno uno):",
+                lista_nomi_box,
+                default=lista_nomi_box,
             )
-        elif gatti_suggeriti:
-            gatti_fatti = st.multiselect(
-                "✅ Gatti / Zone di cui ti occupi (obbligatorio selezionarne almeno uno):",
-                st.session_state.gatti,
-                default=gatti_suggeriti
+        elif box_suggeriti:
+            box_fatti = st.multiselect(
+                "✅ Box / Zone di cui ti occupi (obbligatorio selezionarne almeno uno):",
+                lista_nomi_box,
+                default=box_suggeriti
             )
         else:
-            gatti_fatti = st.multiselect(
-                "✅ Gatti / Zone di cui ti occupi (obbligatorio selezionarne almeno uno):", 
-                st.session_state.gatti
+            box_fatti = st.multiselect(
+                "✅ Box / Zone di cui ti occupi (obbligatorio selezionarne almeno uno):", 
+                lista_nomi_box
             )
 
         submit_button = st.form_submit_button(label="Registra Turno 🚀")
@@ -322,8 +318,8 @@ if menu == "📅 Inserisci":
             if not errore_fascia:
                 if not volontario_finale:
                     st.warning("⚠️ Per favore, seleziona il tuo nome dal menu a tendina o scrivi il tuo nome e cognome nell'apposita casella in alto prima di registrare.")
-                elif not gatti_fatti:
-                    st.error("❌ **Errore:** Devi selezionare almeno un gatto o zona per poter registrare il turno!")
+                elif not box_fatti:
+                    st.error("❌ **Errore:** Devi selezionare almeno un box o zona per poter registrare il turno!")
                 else:
                     lista_turni = carica_file_json(DB_TURNI, [])
                     
@@ -346,7 +342,7 @@ if menu == "📅 Inserisci":
                             "giorno": giorno,
                             "fascia": fascia,
                             "orario": orario,
-                            "gatti_fatti": gatti_fatti,
+                            "box_fatti": box_fatti,
                             "note": note,
                         }
                         lista_turni.append(nuovo_turno)
@@ -354,7 +350,7 @@ if menu == "📅 Inserisci":
                         st.success(f"Turno registrato con successo per {volontario_finale}!")
 
 elif menu == "👀 Panoramica":
-    st.header("Gestione Turni e Copertura")
+    st.header("Gestione Turni e Copertura Box")
 
     turni_attuali = carica_file_json(DB_TURNI, [])
 
@@ -386,6 +382,8 @@ elif menu == "👀 Panoramica":
             "Domenica",
         ]
 
+        lista_tutti_box = list(st.session_state.struttura_box.keys())
+
         for giorno in giorni_settimana:
             st.markdown(f"## 📌 {giorno}")
             turni_giorno = [t for t in turni_filtrati if t["giorno"] == giorno]
@@ -401,20 +399,21 @@ elif menu == "👀 Panoramica":
 
                     if not turni_fascia:
                         st.caption("Nessun volontario registrato.")
-                        st.markdown("**Gatti scoperti:**")
-                        for g in sorted(st.session_state.gatti):
-                            st.error(f"❌ {g}")
+                        st.markdown("**Box scoperti:**")
+                        for b in sorted(lista_tutti_box):
+                            gatti_nel_box = ", ".join(st.session_state.struttura_box[b])
+                            st.error(f"❌ **{b}** (🐱 {gatti_nel_box})")
                         return
 
                     st.markdown("**Volontari presenti:**")
                     for t in turni_fascia:
-                        gatti_str = (
-                            ", ".join(t["gatti_fatti"])
-                            if t["gatti_fatti"]
+                        box_str = (
+                            ", ".join(t["box_fatti"])
+                            if t["box_fatti"]
                             else "Nessuno"
                         )
                         st.write(
-                            f"• **{t['volontario']}** ({t['orario']}) 🐱 [{gatti_str}]"
+                            f"• **{t['volontario']}** ({t['orario']}) 📦 [{box_str}]"
                         )
                         if t["note"]:
                             st.caption(f"Note: {t['note']}")
@@ -458,45 +457,46 @@ elif menu == "👀 Panoramica":
                                     nuovo_orario = f"{m_inizio.strftime('%H:%M')} - {m_fine.strftime('%H:%M')}"
                                     nuove_note = st.text_area("Note:", value=t.get("note", ""), key=f"note_mod_{t['id']}")
                                     
-                                    nuovi_gatti = st.multiselect(
-                                        "Gatti gestiti:",
-                                        st.session_state.gatti,
-                                        default=[g for g in t["gatti_fatti"] if g in st.session_state.gatti],
-                                        key=f"gatti_mod_{t['id']}"
+                                    nuovi_box = st.multiselect(
+                                        "Box gestiti:",
+                                        lista_tutti_box,
+                                        default=[b for b in t["box_fatti"] if b in lista_tutti_box],
+                                        key=f"box_mod_{t['id']}"
                                     )
                                     btn_salva_mod = st.form_submit_button("Salva Modifiche ✅")
                                     if btn_salva_mod:
-                                        if not nuovi_gatti:
-                                            st.error("Errore: seleziona almeno un gatto.")
+                                        if not nuovi_box:
+                                            st.error("Errore: seleziona almeno un box.")
                                         else:
                                             lista_completa = carica_file_json(DB_TURNI, [])
                                             for item in lista_completa:
                                                 if item["id"] == t["id"]:
                                                     item["orario"] = nuovo_orario
                                                     item["note"] = nuove_note
-                                                    item["gatti_fatti"] = nuovi_gatti
+                                                    item["box_fatti"] = nuovi_box
                                             salva_file_json(DB_TURNI, lista_completa)
                                             st.session_state[f"editing_{t['id']}"] = False
                                             st.success("Turno modificato con successo!")
                                             st.rerun()
 
-                    gatti_coperti = set()
+                    box_coperti = set()
                     for t in turni_fascia:
-                        for g in t["gatti_fatti"]:
-                            gatti_coperti.add(g)
+                        for b in t["box_fatti"]:
+                            box_coperti.add(b)
 
-                    gatti_scoperti = [
-                        g
-                        for g in st.session_state.gatti
-                        if g not in gatti_coperti
+                    box_scoperti = [
+                        b
+                        for b in lista_tutti_box
+                        if b not in box_coperti
                     ]
 
-                    st.markdown("**Gatti scoperti:**")
-                    if gatti_scoperti:
-                        for g in sorted(gatti_scoperti):
-                            st.error(f"❌ {g}")
+                    st.markdown("**Box scoperti:**")
+                    if box_scoperti:
+                        for b in sorted(box_scoperti):
+                            gatti_nel_box = ", ".join(st.session_state.struttura_box[b])
+                            st.error(f"❌ **{b}** (🐱 {gatti_nel_box})")
                     else:
-                        st.success("Tutti i gatti sono coperti!")
+                        st.success("Tutti i box sono coperti!")
 
             with col_m:
                 mostra_fascia_calendario("Mattina", col_m)
@@ -505,43 +505,70 @@ elif menu == "👀 Panoramica":
 
             st.markdown("---")
 
-elif menu == "🐈 Gatti":
-    st.header("Gestione Anagrafica Gatti")
+elif menu == "📦 Box & Gatti":
+    st.header("Anagrafica Box e Gatti Residenti")
 
     if not st.session_state.is_admin:
         st.warning(
             "🔒 Questa sezione è protetta. Apri l'area 'Admin' nella barra"
-            " laterale a sinistra per inserire la password."
+            " laterale a sinistra per inserire la password per aggiungere o modificare i box."
         )
-        st.subheader("Lista attuale dei gatti in gattile:")
-        for cat in st.session_state.gatti:
-            st.write(f"🐱 **{cat}**")
+        st.markdown("---")
+        for nome_box, lista_gatti in st.session_state.struttura_box.items():
+            gatti_str = ", ".join(lista_gatti) if lista_gatti else "Nessun gatto registrato in questo box"
+            st.markdown(f"📦 **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱 *Gatti presenti:* {gatti_str}", unsafe_allow_html=True)
+            st.markdown("---")
     else:
-        st.markdown("Aggiungi o rimuovi i gatti presenti in gattile (Modalità Admin attiva).")
+        st.markdown("Gestisci i box del gattile e vedi quali gatti ci sono dentro (Modalità Admin attiva).")
 
-        new_cat = st.text_input("Nome del nuovo gatto:")
-        if st.button("Aggiungi Gatto"):
-            if new_cat.strip() and new_cat not in st.session_state.gatti:
-                st.session_state.gatti.append(new_cat.strip())
-                salva_file_json(DB_GATTI, st.session_state.gatti)
-                st.success(f"Gatto '{new_cat}' aggiunto con successo!")
-                st.rerun()
-            elif new_cat in st.session_state.gatti:
-                st.warning("Questo gatto è già presente nella lista.")
+        with st.form("form_aggiungi_box"):
+            st.subheader("Crea un nuovo Box / Zona")
+            nuovo_nome_box = st.text_input("Nome del Box (es. Box Infermeria):")
+            nuovi_gatti_box = st.text_input("Gatti presenti separati da virgola (es. Briciola, Oscar):")
+            btn_crea_box = st.form_submit_button("Aggiungi Box 📦")
 
-        st.subheader("Lista attuale dei gatti in gattile:")
-        for cat in st.session_state.gatti:
-            col_d1, col_d2 = st.columns([4, 1])
-            with col_d1:
-                st.write(f"🐱 **{cat}**")
-            with col_d2:
-                if st.button("Elimina", key=f"del_{cat}"):
-                    st.session_state.gatti.remove(cat)
-                    salva_file_json(DB_GATTI, st.session_state.gatti)
+            if btn_crea_box:
+                if not nuovo_nome_box.strip():
+                    st.error("Inserisci un nome valido per il box.")
+                elif nuovo_nome_box.strip() in st.session_state.struttura_box:
+                    st.warning("Esiste già un box con questo nome.")
+                else:
+                    gatti_list = [g.strip() for g in nuovi_gatti_box.split(",") if g.strip()]
+                    st.session_state.struttura_box[nuovo_nome_box.strip()] = gatti_list
+                    salva_file_json(DB_BOX, st.session_state.struttura_box)
+                    st.success(f"Box '{nuovo_nome_box}' aggiunto con successo!")
                     st.rerun()
 
+        st.markdown("---")
+        st.subheader("Box e Gatti Attuali:")
+        
+        for nome_box, lista_gatti in list(st.session_state.struttura_box.items()):
+            col_b1, col_b2 = st.columns([3, 1])
+            with col_b1:
+                gatti_str = ", ".join(lista_gatti) if lista_gatti else "Nessun gatto"
+                st.markdown(f"📦 **{nome_box}**<br>&nbsp;&nbsp;&nbsp;&nbsp;🐱 *Gatti:* {gatti_str}", unsafe_allow_html=True)
+            with col_b2:
+                if st.button("Elimina Box", key=f"del_box_{nome_box}"):
+                    del st.session_state.struttura_box[nome_box]
+                    salva_file_json(DB_BOX, st.session_state.struttura_box)
+                    st.rerun()
+            
+            # Modifica rapida gatti nel box
+            with st.expander(f"Modifica gatti in {nome_box}"):
+                with st.form(key=f"form_mod_gatti_{nome_box}"):
+                    stringa_attuale = ", ".join(lista_gatti)
+                    stringa_modificata = st.text_input("Elenco gatti:", value=stringa_attuale, key=f"input_gatti_{nome_box}")
+                    btn_salva_gatti = st.form_submit_button("Aggiorna Gatti del Box")
+                    if btn_salva_gatti:
+                        nuova_lista = [g.strip() for g in stringa_modificata.split(",") if g.strip()]
+                        st.session_state.struttura_box[nome_box] = nuova_lista
+                        salva_file_json(DB_BOX, st.session_state.struttura_box)
+                        st.success("Lista gatti aggiornata!")
+                        st.rerun()
+            st.markdown("---")
+
 elif menu == "📊 Statistiche":
-    st.header("📊 Statistiche Presenze Gatti")
+    st.header("📊 Statistiche Presenze Box")
     
     tutti_i_turni = carica_file_json(DB_TURNI, [])
     tutte_le_settimane = sorted(
@@ -561,7 +588,9 @@ elif menu == "📊 Statistiche":
         t for t in tutti_i_turni if t.get("settimana") == settimana_stat
     ]
 
-    presenze_per_gatto = {gatto: 0 for gatto in st.session_state.gatti}
+    lista_tutti_box = list(st.session_state.struttura_box.keys())
+    presenze_per_box = {box: 0 for box in lista_tutti_box}
+    
     giorni_settimana = [
         "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"
     ]
@@ -572,49 +601,49 @@ elif menu == "📊 Statistiche":
                 t for t in turni_stat
                 if t.get("giorno") == giorno and t.get("fascia") == fascia
             ]
-            gatti_in_questa_fascia = set()
+            box_in_questa_fascia = set()
             for t in turni_fascia:
-                for g in t.get("gatti_fatti", []):
-                    gatti_in_questa_fascia.add(g)
+                for b in t.get("box_fatti", []):
+                    box_in_questa_fascia.add(b)
 
-            for g in gatti_in_questa_fascia:
-                if g in presenze_per_gatto:
-                    presenze_per_gatto[g] += 1
+            for b in box_in_questa_fascia:
+                if b in presenze_per_box:
+                    presenze_per_box[b] += 1
 
-    if not st.session_state.gatti:
-        st.info("Nessun gatto registrato nel sistema.")
+    if not lista_tutti_box:
+        st.info("Nessun box registrato nel sistema.")
     else:
         st.markdown("---")
-        st.subheader("🎯 Riepilogo Attività")
+        st.subheader("🎯 Riepilogo Attività per Box")
         cols = st.columns(3)
 
-        lista_gatti_ordinata = sorted(
-            presenze_per_gatto.items(), key=lambda x: x[1], reverse=True
+        lista_box_ordinata = sorted(
+            presenze_per_box.items(), key=lambda x: x[1], reverse=True
         )
 
-        for idx, (gatto, conteggio) in enumerate(lista_gatti_ordinata):
+        for idx, (box, conteggio) in enumerate(lista_box_ordinata):
             col_corrente = cols[idx % 3]
             with col_corrente:
-                st.metric(label=f"🐱 {gatto}", value=f"{conteggio} turni")
+                st.metric(label=f"📦 {box}", value=f"{conteggio} turni")
 
         st.markdown("---")
         col_grafico, col_tabella = st.columns([1.5, 1])
 
         with col_grafico:
             st.subheader("📈 Grafico a Barre")
-            if sum(presenze_per_gatto.values()) == 0:
-                st.info("Nessuna attività registrata per i gatti in questa settimana.")
+            if sum(presenze_per_box.values()) == 0:
+                st.info("Nessuna attività registrata per i box in questa settimana.")
             else:
                 df_stat = pd.DataFrame(
-                    list(presenze_per_gatto.items()),
-                    columns=["Gatto", "Numero Turni"],
-                ).set_index("Gatto")
+                    list(presenze_per_box.items()),
+                    columns=["Box", "Numero Turni"],
+                ).set_index("Box")
                 st.bar_chart(df_stat)
 
         with col_tabella:
             st.subheader("📋 Tabella Dati")
             df_tabella = pd.DataFrame(
-                list(presenze_per_gatto.items()), columns=["Gatto", "Turni"]
+                list(presenze_per_box.items()), columns=["Box", "Turni"]
             ).sort_values(by="Turni", ascending=False).reset_index(drop=True)
             st.dataframe(df_tabella, use_container_width=True)
 
@@ -666,13 +695,13 @@ elif menu == "📚 Archivio":
 
                     st.markdown("**Volontari presenti:**")
                     for t in turni_fascia:
-                        gatti_str = (
-                            ", ".join(t["gatti_fatti"])
-                            if t["gatti_fatti"]
+                        box_str = (
+                            ", ".join(t["box_fatti"])
+                            if t["box_fatti"]
                             else "Nessuno"
                         )
                         st.write(
-                            f"• **{t['volontario']}** ({t['orario']}) 🐱 [{gatti_str}]"
+                            f"• **{t['volontario']}** ({t['orario']}) 📦 [{box_str}]"
                         )
                         if t["note"]:
                             st.caption(f"Note: {t['note']}")
