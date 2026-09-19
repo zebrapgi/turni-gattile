@@ -9,22 +9,22 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 st.set_page_config(
-    page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
+    page_title="Gestione Turni Gattile", page_icon="iconag.png", layout="wide"
 )
 
-# Tag aggiornati con versione per PWA e iconag.png corretta
+# Tag aggiornati con il link raw corretto per PWA (iOS e Android)
 st.markdown(
     """
     <head>
         <link rel="manifest" href="manifest.json">
         <!-- iOS / Apple Touch Icon -->
-        <link rel="apple-touch-icon" href="https://github.com/lallag/turni-gattile/blob/main/iconag.png?raw=true&v=12">
+        <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/lallag/turni-gattile/main/iconag.png">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="Turni Gattile">
         
         <!-- Android / Chrome / PWA -->
-        <link rel="icon" type="image/png" href="https://github.com/lallag/turni-gattile/blob/main/iconag.png?raw=true&v=12">
+        <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/lallag/turni-gattile/main/iconag.png">
         <meta name="theme-color" content="#FF4B4B">
     </head>
 """,
@@ -46,7 +46,6 @@ DB_BOX = "box_gattile.json"
 DB_LPU = "lpu_gattile.json"
 DB_TURNI_LPU = "turni_lpu.json"
 
-# CACHE STREAMLIT: Riduce le letture Firebase mantenendo i dati in cache per 30 secondi
 @st.cache_data(ttl=30)
 def carica_file_json(filename, default_val):
     try:
@@ -64,11 +63,10 @@ def salva_file_json(filename, data):
     try:
         doc_id = filename.replace(".json", "")
         db.collection("gattile_data").document(doc_id).set({"data": data})
-        st.cache_data.clear()  # Invalida la cache per forzare il riallineamento dei dati
+        st.cache_data.clear()
     except Exception as e:
         st.error(f"Errore nel salvataggio su database ({filename}): {e}")
 
-# OPERAZIONE ATOMICA: Inserisce un singolo elemento nell'array prevenendo sovrascritture concorrenti
 def aggiungi_turno_atomico(filename, nuovo_turno):
     try:
         doc_id = filename.replace(".json", "")
@@ -79,7 +77,6 @@ def aggiungi_turno_atomico(filename, nuovo_turno):
     except Exception as e:
         st.error(f"Errore nell'inserimento del turno: {e}")
 
-# OPERAZIONE ATOMICA: Rimuove un singolo elemento dall'array in modo sicuro
 def rimuovi_turno_atomico(filename, turno_da_rimuovere):
     try:
         doc_id = filename.replace(".json", "")
@@ -90,8 +87,6 @@ def rimuovi_turno_atomico(filename, turno_da_rimuovere):
     except Exception as e:
         st.error(f"Errore nella rimozione del turno: {e}")
 
-
-# Inizializzazione stato box e lpu di default
 BOX_DEFAULT = {
     "Box 1 (Ingresso)": ["Milo", "Nina"],
     "Box 2 (Cuccioli)": ["Romeo", "Pallina"],
@@ -101,7 +96,6 @@ BOX_DEFAULT = {
 
 LPU_DEFAULT = {}
 
-# Sincronizzazione iniziale e caricamento nello stato di sessione
 if "struttura_box" not in st.session_state:
     val_box = carica_file_json(DB_BOX, None)
     if val_box is None:
@@ -122,13 +116,11 @@ if "turni" not in st.session_state:
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 
-# --- GESTIONE ORARIO ITALIANO ESATTO ---
 tz_italia = pytz.timezone("Europe/Rome")
 adesso = datetime.now(tz_italia)
-giorno_settimana = adesso.weekday()  # 0=Lunedì, 4=Venerdì, 5=Sabato, 6=Domenica
+giorno_settimana = adesso.weekday()
 ora_attuale = adesso.hour
 
-# Il weekend parte da venerdì alle 17:00 fino a domenica notte
 is_weekend_reale = (giorno_settimana > 4) or (
     giorno_settimana == 4 and ora_attuale >= 17
 )
@@ -142,7 +134,6 @@ with st.sidebar:
     st.title("🐱 Menu Rapido")
     st.markdown("---")
 
-    # Sezione "I miei turni" nella sidebar
     with st.expander("🔍 Cerca i miei turni", expanded=False):
         volontari_esistenti_side = st.session_state.turni
         nomi_side = sorted(
@@ -185,7 +176,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # Sezione "Admin / Simulatore"
     with st.expander("🔒 Area Admin", expanded=False):
         ADMIN_PASSWORD_CORRETTA = st.secrets.get("ADMIN_PASSWORD", "gattile2026")
         if not st.session_state.is_admin:
@@ -225,10 +215,8 @@ with st.sidebar:
                 st.toast("Uscito dall'Area Admin.", icon="🔒")
                 st.rerun()
 
-# --- INTESTAZIONE PRINCIPALE ---
 st.title("🐱 Turni Gattile")
 
-# --- MENU PRINCIPALE IN ALTO ---
 opzioni_base = [
     "📅 Inserisci",
     "👀 Panoramica",
@@ -245,7 +233,6 @@ else:
 menu = st.pills("Seleziona sezione:", opzioni_menu, default=opzioni_menu[0])
 st.markdown("---")
 
-
 def get_intervalli_settimane():
     oggi = datetime.now(tz_italia)
     lunedi_corrente = oggi - timedelta(days=oggi.weekday())
@@ -260,7 +247,6 @@ def get_intervalli_settimane():
 
     return str_corr, str_pros
 
-
 label_corr, label_pros = get_intervalli_settimane()
 
 if is_weekend_o_venerdi_sera:
@@ -270,7 +256,6 @@ if is_weekend_o_venerdi_sera:
         " turni per la settimana che sta per arrivare."
     )
 
-
 def get_lista_volontari():
     turni_esistenti = st.session_state.turni
     nomi = set()
@@ -279,7 +264,6 @@ def get_lista_volontari():
         if nome:
             nomi.add(nome)
     return sorted(list(nomi))
-
 
 def get_box_frequenti_volontario(nome_volontario):
     if (
@@ -523,7 +507,6 @@ elif menu == "👀 Panoramica":
         t for t in turni_attuali if t.get("settimana") == settimana_vista
     ]
 
-    # --- INDICATORI DI COPERTURA METRICI ---
     giorni_m = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
     fasce_m = ["Mattina", "Pomeriggio"]
     coperti_m = sum(1 for g in giorni_m for f in fasce_m if any(t.get("giorno") == g and t.get("fascia") == f for t in turni_filtrati))
@@ -1313,7 +1296,7 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                                                 f" {nuove_note_val}"
                                             )
                                     salva_file_json(
-                                        DB_TURNI, st.session_state.turni
+                                        DB_TURN_I, st.session_state.turni
                                     )
 
                                     st.session_state[
