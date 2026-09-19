@@ -12,12 +12,20 @@ st.set_page_config(
     page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
 )
 
-# Tag aggiornati con versione forzata (?v=12) per aggirare la cache testarda di iOS
+# Tag aggiornati con versione per PWA e iconag.png corretta
 st.markdown(
     """
     <head>
         <link rel="manifest" href="manifest.json">
-        <link rel="apple-touch-icon" href="https://github.com/lallag/turni-gattile/blob/main/icona.jpg?raw=true&v=12">
+        <!-- iOS / Apple Touch Icon -->
+        <link rel="apple-touch-icon" href="https://github.com/lallag/turni-gattile/blob/main/iconag.png?raw=true&v=12">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Turni Gattile">
+        
+        <!-- Android / Chrome / PWA -->
+        <link rel="icon" type="image/png" href="https://github.com/lallag/turni-gattile/blob/main/iconag.png?raw=true&v=12">
+        <meta name="theme-color" content="#FF4B4B">
     </head>
 """,
     unsafe_allow_html=True,
@@ -128,8 +136,8 @@ is_weekend_o_venerdi_sera = is_weekend_reale
 
 # --- BARRA LATERALE (SIDEBAR) ---
 with st.sidebar:
-    if os.path.exists("icona.jpg"):
-        st.image("icona.jpg", width=80)
+    if os.path.exists("iconag.png"):
+        st.image("iconag.png", width=80)
 
     st.title("🐱 Menu Rapido")
     st.markdown("---")
@@ -515,7 +523,7 @@ elif menu == "👀 Panoramica":
         t for t in turni_attuali if t.get("settimana") == settimana_vista
     ]
 
-    # --- INDICATORI DI COPERTURA METRICI (Presenti unicamente in Panoramica) ---
+    # --- INDICATORI DI COPERTURA METRICI ---
     giorni_m = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
     fasce_m = ["Mattina", "Pomeriggio"]
     coperti_m = sum(1 for g in giorni_m for f in fasce_m if any(t.get("giorno") == g and t.get("fascia") == f for t in turni_filtrati))
@@ -524,7 +532,7 @@ elif menu == "👀 Panoramica":
     col_m1, col_m2 = st.columns(2)
     col_m1.metric("Fasce Coperte", f"{coperti_m}/14")
     col_m2.metric(
-        "Fasce Ancora Liberi",
+        "Fasce Ancora Libere",
         scoperti_m,
         delta=f"{scoperti_m} da coprire" if scoperti_m > 0 else "Tutto coperto! 🎉",
         delta_color="inverse" if scoperti_m > 0 else "normal",
