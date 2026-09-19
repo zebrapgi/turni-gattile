@@ -1,15 +1,16 @@
 {
-  "name": "Gestione Turni Gattile",
-  "short_name": "TurniGattile",
-  "start_url": "/",
+  "name": "Turni Gattile",
+  "short_name": "Gattile",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#ffaa00",
+  "theme_color": "#FF4B4B",
   "icons": [
     {
-      "src": "icona.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg"
+      "src": "https://github.com/lallag/turni-gattile/blob/main/iconag.png?raw=true",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
