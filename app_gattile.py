@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # --- CONFIGURAZIONE ICONA E META TAG MOBILE (iOS / Android) ---
-st.markdown(
+st.html(
     """
     <head>
         <!-- Icona standard per Android/Chrome -->
@@ -27,8 +27,8 @@ st.markdown(
         <!-- Istruzioni base per la web app mobile -->
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    </head>""",
-    unsafe_allow_html=True,
+    </head>
+    """
 )
 
 # --- INIZIALIZZAZIONE FIREBASE & GESTIONE DATI PERSISTENTI ---
