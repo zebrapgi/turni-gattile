@@ -12,24 +12,7 @@ st.set_page_config(
     page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
 )
 
-# --- CONFIGURAZIONE ICONA E META TAG MOBILE (iOS / Android) ---
-st.html(
-    """
-    <head>
-        <!-- Icona standard per Android/Chrome -->
-        <link rel="icon" type="image/png" href="https://github.com/zebrapgi/turni-gattile/blob/main/iconag.png?raw=true">
-        
-        <!-- Icona specifica per iOS (Apple Touch Icon) -->
-        <link rel="apple-touch-icon" href="https://github.com/zebrapgi/turni-gattile/blob/main/iconag.png?raw=true">
-        <link rel="apple-touch-icon" sizes="152x152" href="https://github.com/zebrapgi/turni-gattile/blob/main/iconag.png?raw=true">
-        <link rel="apple-touch-icon" sizes="180x180" href="https://github.com/zebrapgi/turni-gattile/blob/main/iconag.png?raw=true">
-        
-        <!-- Istruzioni base per la web app mobile -->
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    </head>
-    """
-)
+
 
 # --- INIZIALIZZAZIONE FIREBASE & GESTIONE DATI PERSISTENTI ---
 if not firebase_admin._apps:
@@ -135,9 +118,7 @@ is_weekend_reale = (giorno_settimana > 4) or (
 is_weekend_o_venerdi_sera = is_weekend_reale
 
 # --- BARRA LATERALE (SIDEBAR) ---
-with st.sidebar:
-    if os.path.exists("icona.jpg"):
-        st.image("icona.jpg", width=80)
+
 
     st.title("🐱 Menu Rapido")
     st.markdown("---")
