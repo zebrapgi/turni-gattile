@@ -120,7 +120,7 @@ is_weekend_o_venerdi_sera = is_weekend_reale
 # --- BARRA LATERALE (SIDEBAR) ---
 
 
-    st.title("🐱 Menu Rapido")
+st.title("🐱 Menu Rapido")
     st.markdown("---")
 
     # Sezione "I miei turni" nella sidebar
