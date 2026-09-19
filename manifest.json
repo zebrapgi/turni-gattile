@@ -1,7 +1,7 @@
 {
   "name": "Turni Gattile",
   "short_name": "Gattile",
-  "start_url": "/",
+  "start_url": "/turni-gattile/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#FF4B4B"
