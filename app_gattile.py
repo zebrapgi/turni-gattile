@@ -121,7 +121,7 @@ is_weekend_o_venerdi_sera = is_weekend_reale
 
 
 st.title("🐱 Menu Rapido")
-    st.markdown("---")
+st.markdown("---")
 
     # Sezione "I miei turni" nella sidebar
     with st.expander("🔍 Cerca i miei turni", expanded=False):
