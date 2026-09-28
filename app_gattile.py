@@ -267,13 +267,16 @@ with st.container():
         if t.get("giorno") == giorno_oggi_str and t.get("settimana_chiave") == chiave_corr
     ]
     
-    turni_coperti_oggi = len(turni_oggi)
-    totale_turni_previsti = 7
-    turni_scoperti_oggi = max(0, totale_turni_previsti - turni_coperti_oggi)
+    box_coperti_oggi = set()
+    for t in turni_oggi:
+        for b in t.get("box_fatti", []):
+            box_coperti_oggi.add(b)
+            
+    box_scoperti_oggi = [b for b in st.session_state.struttura_box.keys() if b not in box_coperti_oggi]
 
-    if turni_scoperti_oggi > 0:
+    if len(turni_oggi) > 0 and box_scoperti_oggi:
         with st.expander("🔔 Avis Gattile del Giorno", expanded=True):
-            st.warning(f"⚠️ **Attenzione ({giorno_oggi_str}):** Mancano {turni_scoperti_oggi} turni scoperti oggi (totale registrati: {turni_coperti_oggi}/{totale_turni_previsti})[cite: 2].")
+            st.warning(f"⚠️ **Attenzione ({giorno_oggi_str}):** Ci sono box senza volontari assegnati oggi: `{', '.join(box_scoperti_oggi)}`")
 
 # --- MENU PRINCIPALE IN ALTO ---
 opzioni_base = [
@@ -485,7 +488,7 @@ if menu == "📅 Inserisci":
                         st.rerun()
 
 elif menu == "👀 Panoramica":
-    st.header("Gestione Turni e Copertura Giornaliera")
+    st.header("Gestione Turni e Copertura Box")
 
     turni_attuali = carica_da_firestore("turni_gattile", [])
 
@@ -633,16 +636,22 @@ elif menu == "👀 Panoramica":
                                                     st.rerun()
 
                             st.markdown("---")
-                            st.markdown("**Copertura turni:**")
-                            
-                            totale_previsti_fascia = 3 if fascia_nome == "Mattina" else 4  # Totale 7 turni giornalieri suddivisi
-                            turni_registrati_fascia = len(turni_fascia)
-                            turni_scoperti_fascia = max(0, totale_previsti_fascia - turni_registrati_fascia)
+                            st.markdown("**Box scoperti:**")
+                            box_coperti = set()
+                            for t in turni_fascia:
+                                for b in t.get("box_fatti", []):
+                                    box_coperti.add(b)
 
-                            if turni_scoperti_fascia > 0:
-                                st.error(f"❌ Mancano **{turni_scoperti_fascia} turni** scoperti in questa fascia (registrati {turni_registrati_fascia}/{totale_previsti_fascia})[cite: 2].")
+                            box_scoperti = [
+                                b for b in lista_tutti_box if b not in box_coperti
+                            ]
+
+                            if box_scoperti:
+                                for b in sorted(box_scoperti):
+                                    gatti_nel_box = ", ".join(st.session_state.struttura_box.get(b, []))
+                                    st.error(f"❌ **{b}** (🐱 {gatti_nel_box})")
                             else:
-                                st.success("Tutti i turni di questa fascia sono coperti![cite: 2]")
+                                st.success("Tutti i box sono coperti!")
 
             with col_m:
                 mostra_fascia_calendario("Mattina", col_m)
