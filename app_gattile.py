@@ -32,12 +32,10 @@ def carica_da_firestore(collezione_nome, default_val):
         docs = list(db.collection(collezione_nome).stream())
         
         if collezione_nome == "gattile_data":
-            # Legge il documento trovato nella collezione gattile_data adattandosi alla tua struttura
             for doc in docs:
                 diz = doc.to_dict()
                 if "data" in diz:
                     val_data = diz["data"]
-                    # Se è un array di box, convertiamolo in dizionario per l'app
                     if isinstance(val_data, list):
                         return {box: [] for box in val_data}
                     elif isinstance(val_data, dict):
@@ -49,12 +47,31 @@ def carica_da_firestore(collezione_nome, default_val):
             if "lista" in data:
                 return data["lista"].get("elementi", default_val)
             return default_val
+            
+        elif collezione_nome == "turni_gattile":
+            turni_totali = []
+            for doc in docs:
+                diz = doc.to_dict()
+                if "data" in diz and isinstance(diz["data"], list):
+                    turni_totali.extend(diz["data"])
+                else:
+                    turni_totali.append(diz)
+            return turni_totali if turni_totali else default_val
+
         elif collezione_nome == "lpu_data_gattile":
             data = {doc.id: doc.to_dict() for doc in docs}
             return data if data else default_val
-        elif collezione_nome == "turni_gattile" or collezione_nome == "turni_lpu_gattile":
-            lista = [doc.to_dict() for doc in docs]
-            return lista if lista else default_val
+            
+        elif collezione_nome == "turni_lpu_gattile":
+            turni_lpu_totali = []
+            for doc in docs:
+                diz = doc.to_dict()
+                if "data" in diz and isinstance(diz["data"], list):
+                    turni_lpu_totali.extend(diz["data"])
+                else:
+                    turni_lpu_totali.append(diz)
+            return turni_lpu_totali if turni_lpu_totali else default_val
+            
         return default_val
     except Exception as e:
         st.error(f"Errore di caricamento: {e}")
@@ -112,12 +129,10 @@ if "lpu_data" not in st.session_state:
     st.session_state.lpu_data = lpu_dict if lpu_dict else {}
 
 if "turni_lpu" not in st.session_state:
-    turni_lpu_docs = list(db.collection("turni_lpu_gattile").stream())
-    st.session_state.turni_lpu = [doc.to_dict() for doc in turni_lpu_docs]
+    st.session_state.turni_lpu = carica_da_firestore("turni_lpu_gattile", [])
 
 if "turni" not in st.session_state:
-    turni_docs = list(db.collection("turni_gattile").stream())
-    st.session_state.turni = [doc.to_dict() for doc in turni_docs]
+    st.session_state.turni = carica_da_firestore("turni_gattile", [])
 
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
@@ -708,7 +723,6 @@ elif menu == "📦 Box & Gatti":
             if new_box.strip() and new_box.strip() not in st.session_state.struttura_box:
                 lista_g = [g.strip() for g in new_gatti.split(",") if g.strip()]
                 st.session_state.struttura_box[new_box.strip()] = lista_g
-                # Salva aggiornando la struttura nel db
                 db.collection("gattile_data").document("struttura").set({"data": st.session_state.struttura_box})
                 st.success(f"Box '{new_box}' aggiunto con successo!")
                 st.rerun()
