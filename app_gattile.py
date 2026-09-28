@@ -12,17 +12,19 @@ st.set_page_config(
     page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
 )
 
-
-
 # --- INIZIALIZZAZIONE FIREBASE & GESTIONE DATI PERSISTENTI ---
-if not firebase_admin._apps:
-    cred_dict = dict(st.secrets["firebase"])
-    if "private_key" in cred_dict:
-        cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-    cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred)
+try:
+    if not firebase_admin._apps:
+        cred_dict = dict(st.secrets["firebase"])
+        if "private_key" in cred_dict:
+            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
 
-db = firestore.client()
+    db = firestore.client()
+except Exception as e:
+    st.error(f"Errore critico durante l'avvio di Firebase: {e}")
+    st.stop()
 
 DB_TURNI = "turni_gattile.json"
 DB_BOX = "box_gattile.json"
