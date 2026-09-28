@@ -359,15 +359,15 @@ if menu == "📅 Inserisci":
 
             col_ora1, col_ora2 = st.columns(2)
             with col_ora1:
-                ora_inizio = st.time_input("Da:", value=default_inizio)
+                ora_inizio = st.time_input("Da:", value=default_inizio, key=f"ora_inizio_{fascia}")
 
             senza_fine = st.checkbox(
-                "Senza orario di fine (da quest'ora in poi)"
+                "Senza orario di fine (da quest'ora in poi)", key=f"senza_fine_{fascia}"
             )
 
             with col_ora2:
                 if not senza_fine:
-                    ora_fine = st.time_input("A:", value=default_fine)
+                    ora_fine = st.time_input("A:", value=default_fine, key=f"ora_fine_{fascia}")
                 else:
                     st.markdown(
                         "<br><i>Nessun limite</i>", unsafe_allow_html=True
