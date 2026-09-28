@@ -275,7 +275,7 @@ with st.container():
     box_scoperti_oggi = [b for b in st.session_state.struttura_box.keys() if b not in box_coperti_oggi]
 
     if len(turni_oggi) > 0 and box_scoperti_oggi:
-        with st.expander("🔔 Avis Gattile del Giorno", expanded=True):
+        with st.expander("🔔 Avvisi Gattile del Giorno", expanded=True):
             st.warning(f"⚠️ **Attenzione ({giorno_oggi_str}):** Ci sono box senza volontari assegnati oggi: `{', '.join(box_scoperti_oggi)}`")
 
 # --- MENU PRINCIPALE IN ALTO ---
@@ -518,147 +518,157 @@ elif menu == "👀 Panoramica":
         vol_scelto = st.session_state["filtro_vol_side_gatti"]
         turni_filtrati = [t for t in turni_filtrati if str(t.get("volontario", "")).strip().lower() == vol_scelto.strip().lower()]
 
-    if not turni_filtrati:
-        st.info("Nessun turno trovato con i filtri selezionati per questo periodo.")
-    else:
-        giorni_settimana = [
-            "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica",
-        ]
+    # Definizione esatta dei 7 turni ufficiali per i gatti
+    turni_ufficiali_gatti = [
+        {"id_chiave": ("Lunedì", "Mattina"), "titolo": "Lunedì Mattina", "giorno": "Lunedì", "fascia": "Mattina"},
+        {"id_chiave": ("Martedì", "Mattina"), "titolo": "Martedì Mattina", "giorno": "Martedì", "fascia": "Mattina"},
+        {"id_chiave": ("Mercoledì", "Pomeriggio"), "titolo": "Mercoledì Pomeriggio", "giorno": "Mercoledì", "fascia": "Pomeriggio"},
+        {"id_chiave": ("Giovedì", "Intero"), "titolo": "Giovedì (Mattina e Pomeriggio)", "giorno": "Giovedì", "fascia": "Intero"},
+        {"id_chiave": ("Venerdì", "Pomeriggio"), "titolo": "Venerdì Pomeriggio", "giorno": "Venerdì", "fascia": "Pomeriggio"},
+        {"id_chiave": ("Sabato", "Mattina"), "titolo": "Sabato Mattina", "giorno": "Sabato", "fascia": "Mattina"},
+        {"id_chiave": ("Domenica", "Mattina"), "titolo": "Domenica Mattina", "giorno": "Domenica", "fascia": "Mattina"},
+    ]
 
-        lista_tutti_box = list(st.session_state.struttura_box.keys())
+    # Calcolo dei turni coperti (almeno un volontario presente)
+    turni_coperti_count = 0
+    for tu in turni_ufficiali_gatti:
+        g = tu["giorno"]
+        f = tu["fascia"]
+        if g == "Giovedì":
+            t_match = [t for t in turni_filtrati if t.get("giorno") == "Giovedì"]
+        else:
+            t_match = [t for t in turni_filtrati if t.get("giorno") == g and t.get("fascia") == f]
+        
+        if len(t_match) > 0:
+            turni_coperti_count += 1
 
-        for giorno in giorni_settimana:
-            turni_giorno = [t for t in turni_filtrati if t.get("giorno") == giorno]
-            if not turni_giorno:
-                continue
-                
-            st.markdown(f"## 📌 {giorno}")
+    # Indicatore turni coperti su totali (7)
+    st.metric(label="📊 Turni Gattile Coperti", value=f"{turni_coperti_count} su 7")
+    st.markdown("---")
 
-            col_m, col_p = st.columns(2)
+    lista_tutti_box = list(st.session_state.struttura_box.keys())
 
-            def mostra_fascia_calendario(fascia_nome, col_container):
-                with col_container:
-                    with st.container(border=True):
-                        icona_fascia = "🌅" if fascia_nome == "Mattina" else "🌇"
-                        st.markdown(f"### {icona_fascia} {fascia_nome}")
-                        
-                        turni_fascia = [
-                            t for t in turni_giorno if t.get("fascia") == fascia_nome
-                        ]
+    for tu in turni_ufficiali_gatti:
+        giorno = tu["giorno"]
+        fascia = tu["fascia"]
+        titolo_turno = tu["titolo"]
 
-                        if not turni_fascia:
-                            st.caption("Nessun volontario registrato.")
-                        else:
-                            st.markdown("**Volontari presenti:**")
-                            for t in turni_fascia:
-                                box_str = ", ".join(t.get("box_fatti", [])) if t.get("box_fatti") else ""
-                                if box_str:
-                                    dettaglio_mostra = f"📦 [{box_str}]"
-                                else:
-                                    dettaglio_mostra = "🧹 *Pulizie / LPU*"
+        if giorno == "Giovedì":
+            turni_turno = [t for t in turni_filtrati if t.get("giorno") == "Giovedì"]
+        else:
+            turni_turno = [t for t in turni_filtrati if t.get("giorno") == giorno and t.get("fascia") == fascia]
 
-                                st.write(
-                                    f"• **{t.get('volontario')}** ({t.get('orario', '')}) {dettaglio_mostra}"
+        st.markdown(f"## 📌 {titolo_turno}")
+
+        with st.container(border=True):
+            if not turni_turno:
+                st.error("❌ **Turno scoperto:** Nessun volontario registrato.")
+            else:
+                st.markdown("**Volontari presenti:**")
+                for t in turni_turno:
+                    box_str = ", ".join(t.get("box_fatti", [])) if t.get("box_fatti") else ""
+                    if box_str:
+                        dettaglio_mostra = f"📦 [{box_str}]"
+                    else:
+                        dettaglio_mostra = "🧹 *Pulizie / LPU*"
+
+                    st.write(
+                        f"• **{t.get('volontario')}** ({t.get('fascia')} - {t.get('orario', '')}) {dettaglio_mostra}"
+                    )
+                    if t.get("note"):
+                        st.caption(f"Note: {t.get('note')}")
+
+                    if st.session_state.is_admin:
+                        col_mod, col_del = st.columns(2)
+                        with col_mod:
+                            if not str(t.get('id', '')).startswith("lpu_"):
+                                if st.button(
+                                    f"✏️ Modifica ({t.get('volontario')})",
+                                    key=f"mod_btn_gatti_{giorno}_{fascia}_{t.get('id')}",
+                                ):
+                                    st.session_state[f"editing_{t.get('id')}"] = not st.session_state.get(f"editing_{t.get('id')}", False)
+                                    st.rerun()
+                        with col_del:
+                            with st.popover(f"🗑️ Elimina ({t.get('volontario')})"):
+                                st.write("Confermi l'eliminazione?")
+                                if st.button("Conferma 🛑", key=f"conf_del_gatti_{t.get('id')}"):
+                                    tid = t.get('id')
+                                    if str(tid).startswith("lpu_"):
+                                        orig_id = str(tid).replace("lpu_", "")
+                                        tutti_lpu = carica_da_firestore("turni_lpu_gattile", [])
+                                        lpu_trovato = next((item for item in tutti_lpu if str(item.get("id")) == orig_id), None)
+                                        if lpu_trovato:
+                                            nome_lp = lpu_trovato.get("lpu")
+                                            ore_st = lpu_trovato.get("ore", 0.0)
+                                            if nome_lp in st.session_state.lpu_data:
+                                                st.session_state.lpu_data[nome_lp]["ore_fatte"] = max(
+                                                    0.0, st.session_state.lpu_data[nome_lp]["ore_fatte"] - ore_st
+                                                )
+                                                salva_su_firestore("lpu_data_gattile", nome_lp, st.session_state.lpu_data[nome_lp])
+                                            elimina_da_firestore("turni_lpu_gattile", orig_id)
+                                    
+                                    elimina_da_firestore("turni_gattile", tid)
+                                    if f"editing_{tid}" in st.session_state:
+                                        del st.session_state[f"editing_{tid}"]
+                                    st.success("Eliminato!")
+                                    st.rerun()
+
+                        if not str(t.get('id', '')).startswith("lpu_") and st.session_state.get(f"editing_{t.get('id')}", False):
+                            with st.form(key=f"form_mod_gatti_{t.get('id')}"):
+                                st.subheader(f"Modifica Turno di {t.get('volontario')}")
+                                col_m1, col_m2 = st.columns(2)
+                                with col_m1:
+                                    m_inizio = st.time_input("Ora Inizio:", value=time(8, 30), key=f"min_gatti_{t.get('id')}")
+                                with col_m2:
+                                    m_fine = st.time_input("Ora Fine:", value=time(12, 0), key=f"mfin_gatti_{t.get('id')}")
+                                
+                                nuovo_orario = f"{m_inizio.strftime('%H:%M')} - {m_fine.strftime('%H:%M')}"
+                                nuove_note = st.text_area("Note:", value=t.get("note", ""), key=f"note_mod_gatti_{t.get('id')}")
+                                nuovi_box = st.multiselect(
+                                    "Box gestiti:",
+                                    lista_tutti_box,
+                                    default=[b for b in t.get("box_fatti", []) if b in lista_tutti_box],
+                                    key=f"box_mod_gatti_{t.get('id')}"
                                 )
-                                if t.get("note"):
-                                    st.caption(f"Note: {t.get('note')}")
+                                if st.form_submit_button("Salva Modifiche ✅"):
+                                    if not novos_box := nuovi_box:
+                                        st.error("Seleziona almeno un box.")
+                                    else:
+                                        t_agg = {
+                                            "id": t.get('id'),
+                                            "settimana": t.get('settimana'),
+                                            "settimana_chiave": t.get('settimana_chiave'),
+                                            "volontario": t.get('volontario'),
+                                            "giorno": t.get('giorno'),
+                                            "fascia": t.get('fascia'),
+                                            "orario": nuovo_orario,
+                                            "box_fatti": nuovi_box,
+                                            "note": nuove_note
+                                        }
+                                        salva_su_firestore("turni_gattile", t.get('id'), t_agg)
+                                        st.session_state[f"editing_{t.get('id')}"] = False
+                                        st.success("Modificato con successo!")
+                                        st.rerun()
 
-                                if st.session_state.is_admin:
-                                    col_mod, col_del = st.columns(2)
-                                    with col_mod:
-                                        if not str(t.get('id', '')).startswith("lpu_"):
-                                            if st.button(
-                                                f"✏️ Modifica ({t.get('volontario')})",
-                                                key=f"mod_btn_gatti_{giorno}_{fascia_nome}_{t.get('id')}",
-                                            ):
-                                                st.session_state[f"editing_{t.get('id')}"] = not st.session_state.get(f"editing_{t.get('id')}", False)
-                                                st.rerun()
-                                    with col_del:
-                                        with st.popover(f"🗑️ Elimina ({t.get('volontario')})"):
-                                            st.write("Confermi l'eliminazione?")
-                                            if st.button("Conferma 🛑", key=f"conf_del_gatti_{t.get('id')}"):
-                                                tid = t.get('id')
-                                                if str(tid).startswith("lpu_"):
-                                                    orig_id = str(tid).replace("lpu_", "")
-                                                    tutti_lpu = carica_da_firestore("turni_lpu_gattile", [])
-                                                    lpu_trovato = next((item for item in tutti_lpu if str(item.get("id")) == orig_id), None)
-                                                    if lpu_trovato:
-                                                        nome_lp = lpu_trovato.get("lpu")
-                                                        ore_st = lpu_trovato.get("ore", 0.0)
-                                                        if nome_lp in st.session_state.lpu_data:
-                                                            st.session_state.lpu_data[nome_lp]["ore_fatte"] = max(
-                                                                0.0, st.session_state.lpu_data[nome_lp]["ore_fatte"] - ore_st
-                                                            )
-                                                            salva_su_firestore("lpu_data_gattile", nome_lp, st.session_state.lpu_data[nome_lp])
-                                                        elimina_da_firestore("turni_lpu_gattile", orig_id)
-                                                
-                                                elimina_da_firestore("turni_gattile", tid)
-                                                if f"editing_{tid}" in st.session_state:
-                                                    del st.session_state[f"editing_{tid}"]
-                                                st.success("Eliminato!")
-                                                st.rerun()
+                st.markdown("---")
+                st.markdown("**Box scoperti in questo turno:**")
+                box_coperti = set()
+                for t in turni_turno:
+                    for b in t.get("box_fatti", []):
+                        box_coperti.add(b)
 
-                                    if not str(t.get('id', '')).startswith("lpu_") and st.session_state.get(f"editing_{t.get('id')}", False):
-                                        with st.form(key=f"form_mod_gatti_{t.get('id')}"):
-                                            st.subheader(f"Modifica Turno di {t.get('volontario')}")
-                                            col_m1, col_m2 = st.columns(2)
-                                            with col_m1:
-                                                m_inizio = st.time_input("Ora Inizio:", value=time(8, 30), key=f"min_gatti_{t.get('id')}")
-                                            with col_m2:
-                                                m_fine = st.time_input("Ora Fine:", value=time(12, 0), key=f"mfin_gatti_{t.get('id')}")
-                                            
-                                            nuovo_orario = f"{m_inizio.strftime('%H:%M')} - {m_fine.strftime('%H:%M')}"
-                                            nuove_note = st.text_area("Note:", value=t.get("note", ""), key=f"note_mod_gatti_{t.get('id')}")
-                                            nuovi_box = st.multiselect(
-                                                "Box gestiti:",
-                                                lista_tutti_box,
-                                                default=[b for b in t.get("box_fatti", []) if b in lista_tutti_box],
-                                                key=f"box_mod_gatti_{t.get('id')}"
-                                            )
-                                            if st.form_submit_button("Salva Modifiche ✅"):
-                                                if not nuovi_box:
-                                                    st.error("Seleziona almeno un box.")
-                                                else:
-                                                    t_agg = {
-                                                        "id": t.get('id'),
-                                                        "settimana": t.get('settimana'),
-                                                        "settimana_chiave": t.get('settimana_chiave'),
-                                                        "volontario": t.get('volontario'),
-                                                        "giorno": t.get('giorno'),
-                                                        "fascia": t.get('fascia'),
-                                                        "orario": nuovo_orario,
-                                                        "box_fatti": nuovi_box,
-                                                        "note": nuove_note
-                                                    }
-                                                    salva_su_firestore("turni_gattile", t.get('id'), t_agg)
-                                                    st.session_state[f"editing_{t.get('id')}"] = False
-                                                    st.success("Modificato con successo!")
-                                                    st.rerun()
+                box_scoperti = [
+                    b for b in lista_tutti_box if b not in box_coperti
+                ]
 
-                            st.markdown("---")
-                            st.markdown("**Box scoperti:**")
-                            box_coperti = set()
-                            for t in turni_fascia:
-                                for b in t.get("box_fatti", []):
-                                    box_coperti.add(b)
+                if box_scoperti:
+                    for b in sorted(box_scoperti):
+                        gatti_nel_box = ", ".join(st.session_state.struttura_box.get(b, []))
+                        st.warning(f"⚠️ **{b}** (🐱 {gatti_nel_box})")
+                else:
+                    st.success("Tutti i box sono coperti in questo turno!")
 
-                            box_scoperti = [
-                                b for b in lista_tutti_box if b not in box_coperti
-                            ]
-
-                            if box_scoperti:
-                                for b in sorted(box_scoperti):
-                                    gatti_nel_box = ", ".join(st.session_state.struttura_box.get(b, []))
-                                    st.error(f"❌ **{b}** (🐱 {gatti_nel_box})")
-                            else:
-                                st.success("Tutti i box sono coperti!")
-
-            with col_m:
-                mostra_fascia_calendario("Mattina", col_m)
-            with col_p:
-                mostra_fascia_calendario("Pomeriggio", col_p)
-
-            st.markdown("---")
+        st.markdown("---")
 
 elif menu == "📦 Box & Gatti":
     st.header("Anagrafica Box e Gatti")
@@ -815,33 +825,36 @@ elif menu == "📚 Archivio":
             t for t in tutti_i_turni if t.get("settimana_chiave") == storico_scelto_chiave
         ]
 
-        giorni_settimana = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+        turni_ufficiali_gatti = [
+            {"titolo": "Lunedì Mattina", "giorno": "Lunedì", "fascia": "Mattina"},
+            {"titolo": "Martedì Mattina", "giorno": "Martedì", "fascia": "Mattina"},
+            {"titolo": "Mercoledì Pomeriggio", "giorno": "Mercoledì", "fascia": "Pomeriggio"},
+            {"titolo": "Giovedì (Mattina e Pomeriggio)", "giorno": "Giovedì", "fascia": "Intero"},
+            {"titolo": "Venerdì Pomeriggio", "giorno": "Venerdì", "fascia": "Pomeriggio"},
+            {"titolo": "Sabato Mattina", "giorno": "Sabato", "fascia": "Mattina"},
+            {"titolo": "Domenica Mattina", "giorno": "Domenica", "fascia": "Mattina"},
+        ]
 
-        for giorno in giorni_settimana:
-            turni_giorno = [t for t in turni_storico if t.get("giorno") == giorno]
-            if not turni_giorno:
+        for tu in turni_ufficiali_gatti:
+            giorno = tu["giorno"]
+            fascia = tu["fascia"]
+            titolo_turno = tu["titolo"]
+
+            if giorno == "Giovedì":
+                turni_turno = [t for t in turni_storico if t.get("giorno") == "Giovedì"]
+            else:
+                turni_turno = [t for t in turni_storico if t.get("giorno") == giorno and t.get("fascia") == fascia]
+
+            if not turni_turno:
                 continue
-            st.markdown(f"## 📌 {giorno}")
-            col_m, col_p = st.columns(2)
 
-            def mostra_fascia_storica(fascia_nome, col_container):
-                with col_container:
-                    with st.container(border=True):
-                        st.markdown(f"### ☀️ {fascia_nome}")
-                        turni_fascia = [t for t in turni_giorno if t.get("fascia") == fascia_nome]
-                        if not turni_fascia:
-                            st.caption("Nessun volontario.")
-                        else:
-                            for t in turni_fascia:
-                                box_str = ", ".join(t.get("box_fatti", [])) if t.get("box_fatti") else "🧹 Pulizie / LPU"
-                                st.write(f"• **{t.get('volontario')}** ({t.get('orario')}) - {box_str}")
-                                if t.get("note"):
-                                    st.caption(f"Note: {t.get('note')}")
-
-            with col_m:
-                mostra_fascia_storica("Mattina", col_m)
-            with col_p:
-                mostra_fascia_storica("Pomeriggio", col_p)
+            st.markdown(f"## 📌 {titolo_turno}")
+            with st.container(border=True):
+                for t in turni_turno:
+                    box_str = ", ".join(t.get("box_fatti", [])) if t.get("box_fatti") else "🧹 Pulizie / LPU"
+                    st.write(f"• **{t.get('volontario')}** ({t.get('orario')}) - {box_str}")
+                    if t.get("note"):
+                        st.caption(f"Note: {t.get('note')}")
             st.markdown("---")
 
 elif menu == "🛠️ Gestione LPU (Admin)":
