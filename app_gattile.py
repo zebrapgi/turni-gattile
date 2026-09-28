@@ -32,7 +32,7 @@ def carica_da_firestore(collezione_nome, default_val):
         docs = list(db.collection(collezione_nome).stream())
         data = {doc.id: doc.to_dict() for doc in docs}
         
-        if collezione_nome == "box_gattile":
+        if collezione_nome == "gattile_data":
             if "lista" in data:
                 return data["lista"].get("elementi", default_val)
             return default_val
@@ -75,12 +75,12 @@ BOX_DEFAULT = {
 }
 
 if "struttura_box" not in st.session_state:
-    box_caricati = carica_da_firestore("box_gattile", None)
+    box_caricati = carica_da_firestore("gattile_data", None)
     if box_caricati and isinstance(box_caricati, dict):
         st.session_state.struttura_box = box_caricati
     else:
         st.session_state.struttura_box = BOX_DEFAULT
-        db.collection("box_gattile").document("lista").set({"elementi": BOX_DEFAULT})
+        db.collection("gattile_data").document("lista").set({"elementi": BOX_DEFAULT})
 
 if "volontari_db_gattile" not in st.session_state:
     vol_caricati = carica_da_firestore("volontari_gattile", None)
@@ -694,7 +694,7 @@ elif menu == "📦 Box & Gatti":
             if new_box.strip() and new_box.strip() not in st.session_state.struttura_box:
                 lista_g = [g.strip() for g in new_gatti.split(",") if g.strip()]
                 st.session_state.struttura_box[new_box.strip()] = lista_g
-                db.collection("box_gattile").document("lista").set({"elementi": st.session_state.struttura_box})
+                db.collection("gattile_data").document("lista").set({"elementi": st.session_state.struttura_box})
                 st.success(f"Box '{new_box}' aggiunto con successo!")
                 st.rerun()
             elif new_box.strip() in st.session_state.struttura_box:
@@ -711,7 +711,7 @@ elif menu == "📦 Box & Gatti":
                     st.write(f"Confermi l'eliminazione di {nome_box}?")
                     if st.button("Sì, elimina", key=f"conf_del_box_{nome_box}"):
                         del st.session_state.struttura_box[nome_box]
-                        db.collection("box_gattile").document("lista").set({"elementi": st.session_state.struttura_box})
+                        db.collection("gattile_data").document("lista").set({"elementi": st.session_state.struttura_box})
                         st.success(f"Box '{nome_box}' eliminato.")
                         st.rerun()
 
