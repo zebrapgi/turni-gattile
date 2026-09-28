@@ -12,6 +12,8 @@ st.set_page_config(
     page_title="Gestione Turni Gattile", page_icon="🐱", layout="wide"
 )
 
+
+
 # --- INIZIALIZZAZIONE FIREBASE & GESTIONE DATI PERSISTENTI ---
 if not firebase_admin._apps:
     cred_dict = dict(st.secrets["firebase"])
@@ -27,36 +29,6 @@ DB_BOX = "box_gattile.json"
 DB_LPU = "lpu_gattile.json"
 DB_TURNI_LPU = "turni_lpu.json"
 
-# --- GESTIONE ORARIO ITALIANO E FORMATO ISO SETTIMANE ---
-tz_italia = pytz.timezone("Europe/Rome")
-
-def get_iso_week_string(dt=None):
-    if dt is None:
-        dt = datetime.now(tz_italia)
-    iso_year, iso_week, _ = dt.isocalendar()
-    return f"{iso_year}-W{iso_week:02d}"
-
-def etichetta_settimana_formattata(iso_str):
-    try:
-        parts = iso_str.split("-W")
-        year = int(parts[0])
-        week = int(parts[1])
-        d = datetime.strptime(f"{year}-W{week}-1", "%G-W%V-%u").replace(tzinfo=tz_italia)
-        lunedi = d - timedelta(days=d.weekday())
-        domenica = lunedi + timedelta(days=6)
-        tipo = "Settimana Corrente" if iso_str == get_iso_week_string() else ("Prossima Settimana" if iso_str == get_iso_week_string(datetime.now(tz_italia) + timedelta(days=7)) else "Settimana")
-        return f"{tipo} ({lunedi.strftime('%d/%m/%Y')} - {domenica.strftime('%d/%m/%Y')}) [Iso: {iso_str}]"
-    except Exception:
-        return iso_str
-
-def normalizza_chiave_settimana(valore):
-    if not valore:
-        return get_iso_week_string()
-    valore_str = str(valore)
-    if "-W" in valore_str and len(valore_str) >= 8:
-        return valore_str[:8]
-    return get_iso_week_string()
-
 # CACHE STREAMLIT: Riduce le letture Firebase mantenendo i dati in cache per 30 secondi
 @st.cache_data(ttl=30)
 def carica_file_json(filename, default_val):
@@ -65,12 +37,6 @@ def carica_file_json(filename, default_val):
         doc = db.collection("gattile_data").document(doc_id).get()
         if doc.exists:
             data = doc.to_dict().get("data")
-            if data is not None and filename == DB_TURNI and isinstance(data, list):
-                for t in data:
-                    t["settimana"] = normalizza_chiave_settimana(t.get("settimana"))
-            elif data is not None and filename == DB_TURNI_LPU and isinstance(data, list):
-                for t in data:
-                    t["settimana"] = normalizza_chiave_settimana(t.get("settimana"))
             return data if data is not None else default_val
         return default_val
     except Exception as e:
@@ -89,8 +55,6 @@ def salva_file_json(filename, data):
 def aggiungi_turno_atomico(filename, nuovo_turno):
     try:
         doc_id = filename.replace(".json", "")
-        if "settimana" in nuovo_turno:
-            nuovo_turno["settimana"] = normalizza_chiave_settimana(nuovo_turno["settimana"])
         db.collection("gattile_data").document(doc_id).set(
             {"data": firestore.ArrayUnion([nuovo_turno])}, merge=True
         )
@@ -108,6 +72,7 @@ def rimuovi_turno_atomico(filename, turno_da_rimuovere):
         st.cache_data.clear()
     except Exception as e:
         st.error(f"Errore nella rimozione del turno: {e}")
+
 
 # Inizializzazione stato box e lpu di default
 BOX_DEFAULT = {
@@ -141,6 +106,7 @@ if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 
 # --- GESTIONE ORARIO ITALIANO ESATTO ---
+tz_italia = pytz.timezone("Europe/Rome")
 adesso = datetime.now(tz_italia)
 giorno_settimana = adesso.weekday()  # 0=Lunedì, 4=Venerdì, 5=Sabato, 6=Domenica
 ora_attuale = adesso.hour
@@ -189,18 +155,8 @@ with st.sidebar:
             else:
                 for tp in turni_pers_side:
                     box_str = ", ".join(tp.get("box_fatti", []))
-                    sett_mostra = tp.get('settimana', '')
-                    if sett_mostra:
-                        parts = sett_mostra.split("-W")
-                        if len(parts) == 2:
-                            try:
-                                d_w = datetime.strptime(f"{parts[0]}-W{parts[1]}-1", "%G-W%V-%u")
-                                d_end = d_w + timedelta(days=6)
-                                sett_mostra = f"{d_w.strftime('%d/%m')} - {d_end.strftime('%d/%m/%Y')}"
-                            except Exception:
-                                pass
                     st.markdown(
-                        f"• **{sett_mostra}**<br>📅 {tp.get('giorno')}"
+                        f"• **{tp.get('settimana')}**<br>📅 {tp.get('giorno')}"
                         f" ({tp.get('fascia')})<br>⏰"
                         f" {tp.get('orario')}<br> [{box_str}]",
                         unsafe_allow_html=True,
@@ -269,15 +225,23 @@ else:
 menu = st.pills("Seleziona sezione:", opzioni_menu, default=opzioni_menu[0])
 st.markdown("---")
 
-def get_intervalli_settimane_iso():
-    oggi = datetime.now(tz_italia)
-    iso_corr = get_iso_week_string(oggi)
-    iso_pros = get_iso_week_string(oggi + timedelta(days=7))
-    return iso_corr, iso_pros
 
-iso_corr, iso_pros = get_intervalli_settimane_iso()
-label_corr = etichetta_settimana_formattata(iso_corr)
-label_pros = etichetta_settimana_formattata(iso_pros)
+def get_intervalli_settimane():
+    oggi = datetime.now(tz_italia)
+    lunedi_corrente = oggi - timedelta(days=oggi.weekday())
+    domenica_corrente = lunedi_corrente + timedelta(days=6)
+
+    lunedi_prossimo = lunedi_corrente + timedelta(days=7)
+    domenica_prossima = domenica_corrente + timedelta(days=7)
+
+    fmt = "%d/%m/%Y"
+    str_corr = f"Settimana Corrente ({lunedi_corrente.strftime(fmt)} - {domenica_corrente.strftime(fmt)})"
+    str_pros = f"Prossima Settimana ({lunedi_prossimo.strftime(fmt)} - {domenica_prossima.strftime(fmt)})"
+
+    return str_corr, str_pros
+
+
+label_corr, label_pros = get_intervalli_settimane()
 
 if is_weekend_o_venerdi_sera:
     st.warning(
@@ -285,6 +249,7 @@ if is_weekend_o_venerdi_sera:
         " toccare la **'Prossima Settimana'** qui sotto per inserire i tuoi"
         " turni per la settimana che sta per arrivare."
     )
+
 
 def get_lista_volontari():
     turni_esistenti = st.session_state.turni
@@ -294,6 +259,7 @@ def get_lista_volontari():
         if nome:
             nomi.add(nome)
     return sorted(list(nomi))
+
 
 def get_box_frequenti_volontario(nome_volontario):
     if (
@@ -321,20 +287,20 @@ def get_box_frequenti_volontario(nome_volontario):
     )
     return [b[0] for b in box_ordinati if b[1] >= 1]
 
+
 if menu == "📅 Inserisci":
     st.header("Gestione Turni")
 
     if is_weekend_o_venerdi_sera:
-        mappa_scelte_settimana = {label_corr: iso_corr, label_pros: iso_pros}
+        opzioni_settimana = [label_corr, label_pros]
     else:
-        mappa_scelte_settimana = {label_corr: iso_corr}
+        opzioni_settimana = [label_corr]
 
-    scelta_label_settimana = st.radio(
+    settimana_scelta = st.radio(
         "Per quale settimana vuoi inserire il turno?",
-        list(mappa_scelte_settimana.keys()),
+        opzioni_settimana,
         horizontal=True,
     )
-    settimana_scelta = mappa_scelte_settimana[scelta_label_settimana]
     st.markdown("---")
 
     volontari_registrati = get_lista_volontari()
@@ -486,7 +452,7 @@ if menu == "📅 Inserisci":
                     doppione_trovato = any(
                         t.get("volontario", "").strip().lower()
                         == volontario_normalizzato
-                        and normalizza_chiave_settimana(t.get("settimana")) == settimana_scelta
+                        and t.get("settimana") == settimana_scelta
                         and t.get("giorno") == giorno
                         and t.get("fascia") == fascia
                         for t in lista_turni
@@ -523,19 +489,18 @@ elif menu == "👀 Panoramica":
     turni_attuali = st.session_state.turni
 
     if is_weekend_o_venerdi_sera:
-        mappa_scelte_vista = {label_corr: iso_corr, label_pros: iso_pros}
+        scelte_visualizzazione = [label_corr, label_pros]
     else:
-        mappa_scelte_vista = {label_corr: iso_corr}
+        scelte_visualizzazione = [label_corr]
 
-    scelta_label_vista = st.radio(
+    settimana_vista = st.radio(
         "Seleziona la settimana da visualizzare:",
-        list(mappa_scelte_vista.keys()),
+        scelte_visualizzazione,
         horizontal=True,
     )
-    settimana_vista = mappa_scelte_vista[scelta_label_vista]
 
     turni_filtrati = [
-        t for t in turni_attuali if normalizza_chiave_settimana(t.get("settimana")) == settimana_vista
+        t for t in turni_attuali if t.get("settimana") == settimana_vista
     ]
 
     # --- INDICATORI DI COPERTURA METRICI (Presenti unicamente in Panoramica) ---
@@ -826,23 +791,21 @@ elif menu == "📊 Statistiche":
     st.header("📊 Statistiche Presenze Box")
 
     tutti_i_turni = st.session_state.turni
-    tutte_le_settimane_iso = sorted(
-        list(set(normalizza_chiave_settimana(t.get("settimana")) for t in tutti_i_turni))
+    tutte_le_settimane = sorted(
+        list(set(t.get("settimana") for t in tutti_i_turni))
     )
 
-    if iso_corr not in tutte_le_settimane_iso:
-        tutte_le_settimane_iso.insert(0, iso_corr)
-    if iso_pros not in tutte_le_settimane_iso and is_weekend_o_venerdi_sera:
-        tutte_le_settimane_iso.append(iso_pros)
+    if label_corr not in tutte_le_settimane:
+        tutte_le_settimane.insert(0, label_corr)
+    if label_pros not in tutte_le_settimane and is_weekend_o_venerdi_sera:
+        tutte_le_settimane.append(label_pros)
 
-    mappa_stat = {etichetta_settimana_formattata(s): s for s in tutte_le_settimane_iso}
-    scelta_label_stat = st.selectbox(
-        "Seleziona settimana da analizzare:", list(mappa_stat.keys())
+    settimana_stat = st.selectbox(
+        "Seleziona settimana da analizzare:", tutte_le_settimane
     )
-    settimana_stat = mappa_stat[scelta_label_stat]
 
     turni_stat = [
-        t for t in tutti_i_turni if normalizza_chiave_settimana(t.get("settimana")) == settimana_stat
+        t for t in tutti_i_turni if t.get("settimana") == settimana_stat
     ]
 
     lista_tutti_box = list(st.session_state.struttura_box.keys())
@@ -922,28 +885,26 @@ elif menu == "📚 Archivio":
     st.header("📚 Archivio Storico delle Settimane Passate")
 
     tutti_i_turni = st.session_state.turni
-    tutte_le_settimane_iso = sorted(
-        list(set(normalizza_chiave_settimana(t.get("settimana")) for t in tutti_i_turni))
+    tutte_le_settimane = sorted(
+        list(set(t.get("settimana") for t in tutti_i_turni))
     )
     settimane_storiche = [
-        s for s in tutte_le_settimane_iso if s != iso_corr and s != iso_pros
+        s for s in tutte_le_settimane if s != label_corr and s != label_pros
     ]
 
     settimane_disponibili = (
-        settimane_storiche if settimane_storiche else tutte_le_settimane_iso
+        settimane_storiche if settimane_storiche else tutte_le_settimane
     )
 
     if not settimane_disponibili:
         st.info("Nessun dato presente nell'archivio storico.")
     else:
-        mappa_archivio = {etichetta_settimana_formattata(s): s for s in settimane_disponibili}
-        scelta_label_storico = st.selectbox(
-            "Seleziona la settimana dall'archivio:", list(mappa_archivio.keys())
+        storico_scelto = st.selectbox(
+            "Seleziona la settimana dall'archivio:", settimane_disponibili
         )
-        storico_scelto = mappa_archivio[scelta_label_storico]
 
         turni_storico = [
-            t for t in tutti_i_turni if normalizza_chiave_settimana(t.get("settimana")) == storico_scelto
+            t for t in tutti_i_turni if t.get("settimana") == storico_scelto
         ]
 
         giorni_settimana = [
@@ -1099,12 +1060,9 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                     lpu_scelto = st.selectbox(
                         "Seleziona LPU:", lpu_nomi_disponibili
                     )
-                    mappa_scelte_lpu = {label_corr: iso_corr, label_pros: iso_pros} if is_weekend_o_venerdi_sera else {label_corr: iso_corr}
-                    scelta_l_lpu = st.selectbox(
-                        "Settimana:", list(mappa_scelte_lpu.keys())
+                    settimana_lpu = st.selectbox(
+                        "Settimana:", [label_corr, label_pros]
                     )
-                    settimana_lpu = mappa_scelte_lpu[scelta_l_lpu]
-
                     giorno_lpu = st.selectbox(
                         "Giorno:",
                         [
@@ -1203,18 +1161,8 @@ elif menu == "🛠️ Gestione LPU (Admin)":
             else:
                 for tl in reversed(tutti_turni_lpu):
                     box_s = ", ".join(tl.get("box", []))
-                    sett_mostra_lpu = tl.get('settimana', '')
-                    if sett_mostra_lpu:
-                        parts = sett_mostra_lpu.split("-W")
-                        if len(parts) == 2:
-                            try:
-                                d_w = datetime.strptime(f"{parts[0]}-W{parts[1]}-1", "%G-W%V-%u")
-                                d_end = d_w + timedelta(days=6)
-                                sett_mostra_lpu = f"{d_w.strftime('%d/%m')} - {d_end.strftime('%d/%m/%Y')}"
-                            except Exception:
-                                pass
                     st.markdown(
-                        f"• **{tl.get('lpu')}** - {sett_mostra_lpu} | 📅"
+                        f"• **{tl.get('lpu')}** - {tl.get('settimana')} | 📅"
                         f" {tl.get('giorno')} ({tl.get('fascia')} -"
                         f" {tl.get('orario')}) | ⏱️ **{tl.get('ore')} ore** |"
                         f" 📦 [{box_s}]"
