@@ -192,6 +192,13 @@ with st.sidebar:
             if not turni_pers_side:
                 st.write("Nessun turno trovato.")
             else:
+                # Calcolo del totale dei turni personali
+                tot_turni_persona = len(turni_pers_side)
+
+                # Box riassuntivo con il totale
+                st.markdown(f"📊 **Riepilogo Personale:**\n- Turni totali effettuati: **{tot_turni_persona}**")
+                st.markdown("---")
+
                 for tp in turni_pers_side:
                     box_str = ", ".join(tp.get("box_fatti", []))
                     if box_str:
@@ -440,7 +447,13 @@ if menu == "📅 Inserisci":
         ora_limite_divisione = time(14, 0)
         errore_fascia = False
         
-        if fascia == "Mattina" and ora_inizio >= ora_limite_divisione:
+        # --- CONTROLLO LIMITAZIONI GIORNI / FASCE ---
+        # Esempio: se il lunedì pomeriggio non è previsto / non esiste il turno:
+        if giorno == "Lunedì" and fascia == "Pomeriggio":
+            st.error("❌ **Non è possibile inserire turni:** Il lunedì pomeriggio non sono previsti turni in gattile.")
+            errore_fascia = True
+        # ---------------------------------------------
+        elif fascia == "Mattina" and ora_inizio >= ora_limite_divisione:
             st.error("❌ **Errore:** Hai scelto la fascia **Mattina**, ma l'orario di inizio è pomeridiano (dalle 14:00 in poi).")
             errore_fascia = True
         elif fascia == "Pomeriggio" and ora_inizio < ora_limite_divisione:
@@ -1011,4 +1024,3 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                         st.success("Turno LPU eliminato e ore stornate.")
                         st.rerun()
                     st.markdown("---")
-                    
