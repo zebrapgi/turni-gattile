@@ -47,31 +47,34 @@ def carica_da_firestore(collezione_nome, default_val):
             if "lista" in data:
                 return data["lista"].get("elementi", default_val)
             return default_val
-            
-        elif collezione_nome == "turni_gattile":
-            turni_totali = []
-            for doc in docs:
-                diz = doc.to_dict()
-                if "data" in diz and isinstance(diz["data"], list):
-                    turni_totali.extend(diz["data"])
-                else:
-                    turni_totali.append(diz)
-            return turni_totali if turni_totali else default_val
-
         elif collezione_nome == "lpu_data_gattile":
             data = {doc.id: doc.to_dict() for doc in docs}
             return data if data else default_val
-            
-        elif collezione_nome == "turni_lpu_gattile":
-            turni_lpu_totali = []
+        elif collezione_nome == "turni_gattile" or collezione_nome == "turni_lpu_gattile":
+            tutti_i_turni = []
             for doc in docs:
-                diz = doc.to_dict()
-                if "data" in diz and isinstance(diz["data"], list):
-                    turni_lpu_totali.extend(diz["data"])
+                doc_data = doc.to_dict()
+                # Gestione struttura con array 'data'
+                if "data" in doc_data and isinstance(doc_data["data"], list):
+                    for index, item in enumerate(doc_data["data"]):
+                        turno_mappato = {
+                            "firebase_doc_id": doc.id,
+                            "id": item.get("id") or f"{doc.id}_{index}",
+                            "volontario": item.get("volontario", ""),
+                            "giorno": item.get("giorno", ""),
+                            "fascia": item.get("fascia", ""),
+                            "orario": item.get("orario", ""),
+                            "settimana": item.get("settimana", ""),
+                            "settimana_chiave": item.get("settimana_chiave", ""),
+                            "note": item.get("note", ""),
+                            "box_fatti": item.get("box_fatti", [])
+                        }
+                        tutti_i_turni.append(turno_mappato)
                 else:
-                    turni_lpu_totali.append(diz)
-            return turni_lpu_totali if turni_lpu_totali else default_val
-            
+                    # Struttura a documento singolo standard
+                    if doc_data:
+                        tutti_i_turni.append(doc_data)
+            return tutti_i_turni if tutti_i_turni else default_val
         return default_val
     except Exception as e:
         st.error(f"Errore di caricamento: {e}")
@@ -129,7 +132,8 @@ if "lpu_data" not in st.session_state:
     st.session_state.lpu_data = lpu_dict if lpu_dict else {}
 
 if "turni_lpu" not in st.session_state:
-    st.session_state.turni_lpu = carica_da_firestore("turni_lpu_gattile", [])
+    turni_lpu_docs = list(db.collection("turni_lpu_gattile").stream())
+    st.session_state.turni_lpu = [doc.to_dict() for doc in turni_lpu_docs]
 
 if "turni" not in st.session_state:
     st.session_state.turni = carica_da_firestore("turni_gattile", [])
