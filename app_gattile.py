@@ -30,17 +30,27 @@ db = firestore.client()
 def carica_da_firestore(collezione_nome, default_val):
     try:
         docs = list(db.collection(collezione_nome).stream())
-        data = {doc.id: doc.to_dict() for doc in docs}
         
         if collezione_nome == "gattile_data":
-            if "lista" in data:
-                return data["lista"].get("elementi", default_val)
+            # Legge il documento trovato nella collezione gattile_data adattandosi alla tua struttura
+            for doc in docs:
+                diz = doc.to_dict()
+                if "data" in diz:
+                    val_data = diz["data"]
+                    # Se è un array di box, convertiamolo in dizionario per l'app
+                    if isinstance(val_data, list):
+                        return {box: [] for box in val_data}
+                    elif isinstance(val_data, dict):
+                        return val_data
             return default_val
+            
         elif collezione_nome == "volontari_gattile":
+            data = {doc.id: doc.to_dict() for doc in docs}
             if "lista" in data:
                 return data["lista"].get("elementi", default_val)
             return default_val
         elif collezione_nome == "lpu_data_gattile":
+            data = {doc.id: doc.to_dict() for doc in docs}
             return data if data else default_val
         elif collezione_nome == "turni_gattile" or collezione_nome == "turni_lpu_gattile":
             lista = [doc.to_dict() for doc in docs]
@@ -68,10 +78,15 @@ def elimina_da_firestore(collezione_nome, doc_id):
 
 # Inizializzazione stato con Firebase
 BOX_DEFAULT = {
-    "Box 1 (Ingresso)": ["Milo", "Nina"],
-    "Box 2 (Cuccioli)": ["Romeo", "Pallina"],
-    "Box 3 (Sala Comune)": ["Simba", "Luna"],
-    "Reparto Degenza": ["Arturo", "Mimì"],
+    "🔴 Box rosso": [],
+    "🔵 Box blu": [],
+    "🏠 Box Castioni": [],
+    "🟡 Box giallo": [],
+    "🟠 Box arancione": [],
+    "🟢 Box verde": [],
+    "🌿 Esterni (oasi felina)": [],
+    "🩺 Infermieria": [],
+    "🍼 Nursery": [],
 }
 
 if "struttura_box" not in st.session_state:
@@ -80,7 +95,6 @@ if "struttura_box" not in st.session_state:
         st.session_state.struttura_box = box_caricati
     else:
         st.session_state.struttura_box = BOX_DEFAULT
-        db.collection("gattile_data").document("lista").set({"elementi": BOX_DEFAULT})
 
 if "volontari_db_gattile" not in st.session_state:
     vol_caricati = carica_da_firestore("volontari_gattile", None)
@@ -694,7 +708,8 @@ elif menu == "📦 Box & Gatti":
             if new_box.strip() and new_box.strip() not in st.session_state.struttura_box:
                 lista_g = [g.strip() for g in new_gatti.split(",") if g.strip()]
                 st.session_state.struttura_box[new_box.strip()] = lista_g
-                db.collection("gattile_data").document("lista").set({"elementi": st.session_state.struttura_box})
+                # Salva aggiornando la struttura nel db
+                db.collection("gattile_data").document("struttura").set({"data": st.session_state.struttura_box})
                 st.success(f"Box '{new_box}' aggiunto con successo!")
                 st.rerun()
             elif new_box.strip() in st.session_state.struttura_box:
@@ -711,7 +726,7 @@ elif menu == "📦 Box & Gatti":
                     st.write(f"Confermi l'eliminazione di {nome_box}?")
                     if st.button("Sì, elimina", key=f"conf_del_box_{nome_box}"):
                         del st.session_state.struttura_box[nome_box]
-                        db.collection("gattile_data").document("lista").set({"elementi": st.session_state.struttura_box})
+                        db.collection("gattile_data").document("struttura").set({"data": st.session_state.struttura_box})
                         st.success(f"Box '{nome_box}' eliminato.")
                         st.rerun()
 
