@@ -631,7 +631,7 @@ elif menu == "👀 Panoramica":
                                     key=f"box_mod_gatti_{t.get('id')}"
                                 )
                                 if st.form_submit_button("Salva Modifiche ✅"):
-                                    if not novos_box := nuovi_box:
+                                    if not nuovi_box:
                                         st.error("Seleziona almeno un box.")
                                     else:
                                         t_agg = {
@@ -1011,3 +1011,4 @@ elif menu == "🛠️ Gestione LPU (Admin)":
                         st.success("Turno LPU eliminato e ore stornate.")
                         st.rerun()
                     st.markdown("---")
+                    
