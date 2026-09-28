@@ -192,10 +192,8 @@ with st.sidebar:
             if not turni_pers_side:
                 st.write("Nessun turno trovato.")
             else:
-                # Calcolo del totale dei turni personali
                 tot_turni_persona = len(turni_pers_side)
 
-                # Box riassuntivo con il totale
                 st.markdown(f"📊 **Riepilogo Personale:**\n- Turni totali effettuati: **{tot_turni_persona}**")
                 st.markdown("---")
 
@@ -447,12 +445,14 @@ if menu == "📅 Inserisci":
         ora_limite_divisione = time(14, 0)
         errore_fascia = False
         
-        # --- CONTROLLO LIMITAZIONI GIORNI / FASCE ---
-        # Esempio: se il lunedì pomeriggio non è previsto / non esiste il turno:
-        if giorno == "Lunedì" and fascia == "Pomeriggio":
-            st.error("❌ **Non è possibile inserire turni:** Il lunedì pomeriggio non sono previsti turni in gattile.")
+        # --- CONTROLLO LIMITAZIONI GIORNI / FASCE AGGIORNATO ---
+        if giorno in ["Lunedì", "Martedì", "Sabato", "Domenica"] and fascia == "Pomeriggio":
+            st.error(f"❌ **Non è possibile inserire turni:** Il {giorno} pomeriggio non sono previsti turni in gattile.")
             errore_fascia = True
-        # ---------------------------------------------
+        elif giorno in ["Mercoledì", "Venerdì"] and fascia == "Mattina":
+            st.error(f"❌ **Non è possibile inserire turni:** Il {giorno} mattina non sono previsti turni in gattile.")
+            errore_fascia = True
+        # -------------------------------------------------------
         elif fascia == "Mattina" and ora_inizio >= ora_limite_divisione:
             st.error("❌ **Errore:** Hai scelto la fascia **Mattina**, ma l'orario di inizio è pomeridiano (dalle 14:00 in poi).")
             errore_fascia = True
@@ -531,7 +531,6 @@ elif menu == "👀 Panoramica":
         vol_scelto = st.session_state["filtro_vol_side_gatti"]
         turni_filtrati = [t for t in turni_filtrati if str(t.get("volontario", "")).strip().lower() == vol_scelto.strip().lower()]
 
-    # Definizione esatta dei 7 turni ufficiali per i gatti
     turni_ufficiali_gatti = [
         {"id_chiave": ("Lunedì", "Mattina"), "titolo": "Lunedì Mattina", "giorno": "Lunedì", "fascia": "Mattina"},
         {"id_chiave": ("Martedì", "Mattina"), "titolo": "Martedì Mattina", "giorno": "Martedì", "fascia": "Mattina"},
@@ -542,7 +541,6 @@ elif menu == "👀 Panoramica":
         {"id_chiave": ("Domenica", "Mattina"), "titolo": "Domenica Mattina", "giorno": "Domenica", "fascia": "Mattina"},
     ]
 
-    # Calcolo dei turni coperti (almeno un volontario presente)
     turni_coperti_count = 0
     for tu in turni_ufficiali_gatti:
         g = tu["giorno"]
@@ -555,7 +553,6 @@ elif menu == "👀 Panoramica":
         if len(t_match) > 0:
             turni_coperti_count += 1
 
-    # Indicatore turni coperti su totali (7)
     st.metric(label="📊 Turni Gattile Coperti", value=f"{turni_coperti_count} su 7")
     st.markdown("---")
 
